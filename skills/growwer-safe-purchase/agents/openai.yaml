@@ -1,0 +1,12 @@
+interface:
+  display_name: "Growwer Safe Purchase"
+  short_description: "Estimate an order, then place it at its confirmed price"
+  default_prompt: "Use $growwer-safe-purchase to buy an article on a Growwer media with no surprise charge."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "growwer"
+      description: "Growwer sponsored content marketplace; this skill spends wallet balance and needs write access"
+      transport: "streamable_http"
+      url: "https://tool.growwer.com/mcp"

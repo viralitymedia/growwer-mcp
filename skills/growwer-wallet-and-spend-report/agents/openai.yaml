@@ -1,0 +1,12 @@
+interface:
+  display_name: "Growwer Wallet Report"
+  short_description: "Report balances, movements, invoices and earnings"
+  default_prompt: "Use $growwer-wallet-and-spend-report to report my Growwer wallet, spend and earnings for the last 30 days."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "growwer"
+      description: "Growwer sponsored content marketplace; this skill only reads wallets, invoices and withdrawals"
+      transport: "streamable_http"
+      url: "https://tool.growwer.com/mcp"

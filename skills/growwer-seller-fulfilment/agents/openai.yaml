@@ -1,0 +1,12 @@
+interface:
+  display_name: "Growwer Seller Fulfilment"
+  short_description: "Accept, deliver and answer the orders on your media"
+  default_prompt: "Use $growwer-seller-fulfilment to work through the orders placed on my Growwer media."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "growwer"
+      description: "Growwer sponsored content marketplace; this skill fulfils seller orders and needs write access"
+      transport: "streamable_http"
+      url: "https://tool.growwer.com/mcp"
