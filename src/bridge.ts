@@ -31,6 +31,15 @@ const CREDENTIAL_REJECTED =
   `The Growwer API rejected the credential (HTTP 401). Create an API key at ${BUYER_KEYS_URL} ` +
   `or ${SELLER_KEYS_URL}, and set ${TOKEN_ENV_VAR}.`;
 
+/** What a host reads for a request that reached the upstream and lost its answer. */
+const MAY_HAVE_RUN = 'It may have run, so check before repeating it.';
+
+/**
+ * How long a replayed `initialize` may take. A server can accept it with a 202, answer something
+ * else or stall, and every later frame waits on the replay, so without a limit the bridge hangs.
+ */
+const REPLAY_TIMEOUT_MS = 15_000;
+
 export interface BridgeOptions {
   readonly url: URL;
   readonly headers: Readonly<Record<string, string>>;
@@ -39,6 +48,8 @@ export interface BridgeOptions {
   readonly stdout?: Writable;
   /** Called once when the bridge can no longer serve the host. */
   readonly onClose?: () => void;
+  /** Injectable for tests; defaults to 15 seconds. */
+  readonly replayTimeoutMs?: number;
 }
 
 export interface Bridge {
@@ -100,8 +111,11 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
    */
   const open = new Map<RequestId, StreamableHTTPClientTransport | undefined>();
 
-  /** Upstream requests the host has not answered yet, all of them on the current session. */
-  const awaitingHost = new Set<RequestId>();
+  /**
+   * Upstream requests the host has not answered yet, and the transport each came on. An answer goes
+   * back only while that transport is the current one: a newer session never asked, and would drop it.
+   */
+  const awaitingHost = new Map<RequestId, StreamableHTTPClientTransport>();
 
   let remote = createRemote();
 
@@ -124,7 +138,7 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
       }
 
       if (isJSONRPCRequest(message)) {
-        awaitingHost.add(message.id);
+        awaitingHost.set(message.id, transport);
       }
 
       void local.send(message).catch((error: unknown) => {
@@ -184,6 +198,11 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
     replayCount += 1;
 
     const replay: JSONRPCRequest = { ...frame, id: `${REPLAY_ID_PREFIX}${replayCount}` };
+    const timeoutMs = options.replayTimeoutMs ?? REPLAY_TIMEOUT_MS;
+    const expiry = new AbortController();
+    const timer = setTimeout(() => {
+      expiry.abort(new Error(`the upstream did not answer the replayed handshake within ${timeoutMs / 1_000} s`));
+    }, timeoutMs);
 
     await new Promise<void>((resolve, reject) => {
       onReplayAnswer = (message) => {
@@ -194,12 +213,17 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
         }
       };
 
+      // Rejects before the aborted POST does, so the host reads the time limit rather than an abort.
+      expiry.signal.addEventListener('abort', () => reject(expiry.signal.reason), { once: true });
+
       next
         .send(replay, {
+          requestSignal: expiry.signal,
           onRequestStreamEnd: () => reject(new Error('the upstream did not answer the replayed handshake')),
         })
         .catch(reject);
     }).finally(() => {
+      clearTimeout(timer);
       onReplayAnswer = undefined;
     });
 
@@ -220,12 +244,16 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
     delete transport.onerror;
     delete transport.onclose;
 
+    for (const [id, askedOn] of awaitingHost) {
+      if (askedOn === transport) {
+        awaitingHost.delete(id);
+      }
+    }
+
     const abandoned = [...open].filter(([, sentOn]) => sentOn === transport).map(([id]) => id);
 
     await Promise.all(
-      abandoned.map((id) =>
-        fail(id, 'The upstream session expired while this request was open. It may have run, so check before repeating it.')
-      )
+      abandoned.map((id) => fail(id, `The upstream session expired while this request was open. ${MAY_HAVE_RUN}`))
     );
 
     await transport.close().catch(() => undefined);
@@ -242,8 +270,8 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
 
     replayOwed = true;
 
-    // These prompts belong to the session that is gone. A late answer to one must not reach the
-    // next session, which never asked and would drop it.
+    // These prompts belong to the session that is gone, so an answer to one has nowhere to go. One
+    // the old stream still carries in during the replay is dropped when `retire` takes that stream.
     awaitingHost.clear();
 
     try {
@@ -283,7 +311,21 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
   async function failFrame(message: JSONRPCMessage, error: unknown): Promise<void> {
     if (isCredentialRejected(error)) {
       log(`growwer-mcp: ${CREDENTIAL_REJECTED}`);
-      await Promise.all([...open.keys()].map((id) => fail(id, CREDENTIAL_REJECTED)));
+
+      // The rejected request and those not sent yet never ran. One already sent on a session the key
+      // opened earlier may have, and repeating it under a new key would run it twice.
+      const rejected = isJSONRPCRequest(message) ? message.id : undefined;
+
+      await Promise.all(
+        [...open].map(([id, sentOn]) =>
+          fail(
+            id,
+            sentOn === undefined || id === rejected
+              ? CREDENTIAL_REJECTED
+              : `The Growwer API rejected the credential (HTTP 401) while this request was open. ${MAY_HAVE_RUN}`
+          )
+        )
+      );
       await shutdown();
 
       return;
@@ -389,7 +431,13 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
 
   local.onmessage = (message) => {
     if (isJSONRPCResponse(message)) {
-      if (message.id === undefined || !awaitingHost.delete(message.id)) {
+      const askedOn = message.id === undefined ? undefined : awaitingHost.get(message.id);
+
+      if (message.id !== undefined) {
+        awaitingHost.delete(message.id);
+      }
+
+      if (askedOn !== remote) {
         log('growwer-mcp: dropped a host response that no upstream request is waiting for.');
 
         return;

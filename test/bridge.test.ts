@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 import { after, describe, it } from 'node:test';
 
-import { startBridge } from '../src/bridge.ts';
+import { startBridge, type BridgeOptions } from '../src/bridge.ts';
 import {
   StdioPair,
   startFakeUpstream,
+  type Exchange,
   type FakeUpstream,
   type FakeUpstreamOptions,
   type JsonRpcMessage,
@@ -67,14 +68,18 @@ interface Harness {
   closed: () => boolean;
 }
 
+/** Bridge options a test may set; the rest belong to the harness. */
+type BridgeTuning = Pick<BridgeOptions, 'replayTimeoutMs'>;
+
 /** Brings up an upstream and a bridge, torn down when the suite ends. */
-const connect = async (options: FakeUpstreamOptions = {}): Promise<Harness> => {
+const connect = async (options: FakeUpstreamOptions = {}, tuning: BridgeTuning = {}): Promise<Harness> => {
   const upstream = await startFakeUpstream(options);
   const stdio = new StdioPair();
 
   let closed = false;
 
   const bridge = await startBridge({
+    ...tuning,
     url: upstream.url,
     headers: { Authorization: 'Bearer gw_sk_test' },
     stdin: stdio.toServer,
@@ -93,8 +98,8 @@ const connect = async (options: FakeUpstreamOptions = {}): Promise<Harness> => {
 };
 
 /** As `connect`, with the host's handshake done. */
-const connected = async (options: FakeUpstreamOptions = {}): Promise<Harness> => {
-  const harness = await connect(options);
+const connected = async (options: FakeUpstreamOptions = {}, tuning: BridgeTuning = {}): Promise<Harness> => {
+  const harness = await connect(options, tuning);
 
   harness.stdio.send(initialize);
   assert.equal((await harness.stdio.next()).id, 1);
@@ -365,7 +370,7 @@ describe('a request the upstream does not answer', () => {
     assert.equal((await stdio.next()).id, 3);
   });
 
-  it('answers the open requests with the key explanation on a 401, then closes', async () => {
+  it('answers the open requests on a 401, then closes', async () => {
     const { stdio, closed } = await connected({
       script: ({ message, reply }) => {
         if (message.method === 'tools/call') {
@@ -389,11 +394,61 @@ describe('a request the upstream does not answer', () => {
 
     const answers = await nextById(stdio, 2);
 
-    assertErrorOn(answers.get(2), 2, /GROWWER_API_KEY/);
+    assertErrorOn(answers.get(2), 2, /may have run/);
     assertErrorOn(answers.get(3), 3, /https:\/\/tool\.growwer\.com\/user\/buyer\/api-keys/);
 
     await delay(50);
     assert.equal(closed(), true);
+  });
+
+  it('on a 401, tells a request already sent from the rejected one and those not sent yet', async () => {
+    let answerList: Exchange['reply'] | undefined;
+
+    const { stdio, upstream } = await connected({
+      script: ({ message, reply }) => {
+        // Sent on the session the key opened, and held: it may be running when the key is revoked.
+        if (message.method === 'tools/call') {
+          return true;
+        }
+
+        if (message.method === 'tools/list' && message.id === 3) {
+          answerList = reply;
+
+          return true;
+        }
+
+        // Starts a replay that never ends, so the requests after it wait unsent.
+        if (message.method === 'tools/list' && message.id === 4) {
+          reply(404);
+
+          return true;
+        }
+
+        return message.method === 'initialize' && message.id !== 1;
+      },
+    });
+
+    stdio.send(toolCall(2));
+    await upstream.waitFor((request) => request.method === 'tools/call');
+    stdio.send(toolsList(3));
+    await upstream.waitFor((request) => request.id === 3);
+    stdio.send(toolsList(4));
+    await upstream.waitFor((request) => request.method === 'initialize' && request.id !== 1);
+    stdio.send(toolsList(5));
+    await delay(50);
+
+    answerList?.(401, JSON.stringify({ error: 'unauthorized' }));
+
+    const answers = await nextById(stdio, 4);
+
+    assertErrorOn(answers.get(2), 2, /may have run/);
+
+    for (const id of [3, 4, 5]) {
+      assertErrorOn(answers.get(id), id, /GROWWER_API_KEY/);
+      assert.doesNotMatch(answers.get(id)?.error?.message ?? '', /may have run/);
+    }
+
+    assert.equal(count(upstream, 'tools/list'), 2, 'the request queued behind the replay was never sent');
   });
 });
 
@@ -641,6 +696,160 @@ describe('a replay of the handshake', () => {
     await delay(50);
     assert.equal(closed(), true);
   });
+
+  const unanswered: [string, (exchange: Exchange) => void][] = [
+    ['is accepted with a 202', ({ reply }) => reply(202)],
+    ['is never answered', () => undefined],
+  ];
+
+  for (const [name, leave] of unanswered) {
+    it(`fails after its time limit when it ${name}, and the next frame replays first`, async () => {
+      let stall = true;
+
+      const { stdio, upstream, closed } = await connected(
+        {
+          script: (exchange) => {
+            if (exchange.message.method === 'initialize' && exchange.message.id !== 1 && stall) {
+              stall = false;
+              leave(exchange);
+
+              return true;
+            }
+
+            return false;
+          },
+        },
+        { replayTimeoutMs: 200 }
+      );
+
+      upstream.evict();
+      stdio.send(toolsList(2));
+      assertErrorOn(await stdio.next(), 2, /did not answer the replayed handshake within 0\.2 s/);
+      assert.equal(closed(), false);
+
+      stdio.send(toolsList(3));
+
+      const answer = await stdio.next();
+
+      assert.equal(answer.id, 3);
+      assert.ok(answer.result !== undefined);
+      assert.equal(count(upstream, 'initialize'), 3);
+      assert.equal(upstream.requests.at(-1)?.sessionId, 'session-2');
+    });
+  }
+
+  it('answers a plain JSON request in flight on the old session with may have run', async () => {
+    const { stdio, upstream, closed } = await connected({
+      // Held with no answer and no stream: the POST is still waiting for its JSON body.
+      script: ({ message }) => message.method === 'tools/call',
+    });
+
+    stdio.send(toolCall(2));
+    await upstream.waitFor((request) => request.method === 'tools/call');
+
+    upstream.evict();
+    stdio.send(toolsList(3));
+
+    const answers = await nextById(stdio, 2);
+
+    assertErrorOn(answers.get(2), 2, /may have run/);
+    assert.ok(answers.get(3)?.result !== undefined);
+    await stdio.assertSilent();
+
+    assert.equal(count(upstream, 'tools/call'), 1, 'it may have run, so it is not repeated');
+    assert.equal(closed(), false);
+  });
+
+  /** An upstream whose replayed `initialize` takes long enough for the host to send more frames. */
+  const slowReplay = (): FakeUpstreamOptions => ({
+    script: async ({ message }) => {
+      if (message.method === 'initialize' && message.id !== 1) {
+        await delay(150);
+      }
+
+      return false;
+    },
+  });
+
+  const replaySeen = (request: { method: string; id?: string | number }): boolean =>
+    request.method === 'initialize' && request.id !== 1;
+
+  it('sends a request that arrives during the replay to the new session, once', async () => {
+    const { stdio, upstream } = await connected(slowReplay());
+
+    upstream.evict();
+    stdio.send(toolsList(2));
+    await upstream.waitFor(replaySeen);
+    stdio.send(toolsList(3));
+
+    const answers = await nextById(stdio, 2);
+
+    assert.ok(answers.get(2)?.result !== undefined);
+    assert.ok(answers.get(3)?.result !== undefined);
+
+    const sent = upstream.requests.filter((request) => request.id === 3);
+
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0]?.sessionId, 'session-2');
+    assert.equal(count(upstream, 'initialize'), 2);
+  });
+
+  it('never sends a request cancelled while it waited for the replay, and owes it no answer', async () => {
+    const { stdio, upstream } = await connected(slowReplay());
+
+    upstream.evict();
+    stdio.send(toolsList(2));
+    await upstream.waitFor(replaySeen);
+    stdio.send(toolCall(3));
+    stdio.send({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 3 } });
+
+    assert.equal((await stdio.next()).id, 2);
+    await upstream.waitFor((request) => request.method === 'notifications/cancelled');
+    await stdio.assertSilent();
+
+    assert.equal(count(upstream, 'tools/call'), 0);
+  });
+
+  it('takes an initialize the host sends while a replay is owed as the new handshake', async () => {
+    let failReplay = true;
+
+    const { stdio, upstream } = await connected({
+      script: ({ message, reply }) => {
+        if (message.method === 'initialize' && message.id !== 1 && failReplay) {
+          failReplay = false;
+          reply(503);
+
+          return true;
+        }
+
+        return false;
+      },
+    });
+
+    upstream.evict();
+    stdio.send(toolsList(2));
+    assertErrorOn(await stdio.next(), 2, /HTTP 503/);
+
+    stdio.send({ ...initialize, id: 10 });
+
+    const handshake = await stdio.next();
+
+    assert.equal(handshake.id, 10);
+    assert.ok(handshake.result !== undefined);
+
+    stdio.send({ jsonrpc: '2.0', method: 'notifications/initialized' });
+    stdio.send(toolsList(11));
+    assert.ok((await stdio.next()).result !== undefined);
+
+    // The host's own handshake opened the session, so no replay went before it.
+    assert.deepEqual(
+      upstream.requests.filter((request) => request.method === 'initialize').map((request) => request.id),
+      [1, 'growwer-mcp/reinitialize/1', 10]
+    );
+    assert.deepEqual(upstream.sessions, ['session-1', 'session-2']);
+    assert.equal(upstream.requests.at(-1)?.sessionId, 'session-2');
+    assert.equal(upstream.requests.at(-1)?.protocolVersion, '2025-06-18');
+  });
 });
 
 describe('a session lost during a pending elicitation', () => {
@@ -701,6 +910,46 @@ describe('a session lost during a pending elicitation', () => {
     assert.equal(count(upstream, '(response)'), 1);
     assert.equal(upstream.requests.find((request) => request.method === '(response)')?.sessionId, 'session-1');
     assert.equal(count(upstream, 'tools/call'), 1);
+    assert.equal(closed(), false);
+  });
+
+  it('drops the answer to a prompt the old session sent during the replay', async () => {
+    let call: SseStream | undefined;
+
+    const { stdio, upstream, closed } = await connected({
+      script: async ({ message, sse }) => {
+        if (message.method === 'tools/call') {
+          call = sse();
+
+          return true;
+        }
+
+        // The old stream asks for confirmation after the replay has begun and before it ends.
+        if (message.method === 'initialize' && message.id !== 1) {
+          call?.send(form);
+          await delay(100);
+        }
+
+        return false;
+      },
+    });
+
+    stdio.send(toolCall(2));
+    await upstream.waitFor((request) => request.method === 'tools/call');
+
+    upstream.evict();
+    stdio.send(toolsList(3));
+
+    const messages = await nextById(stdio, 3);
+
+    assert.equal(messages.get('elicit-1')?.method, 'elicitation/create');
+    assertErrorOn(messages.get(2), 2, /may have run/);
+    assert.ok(messages.get(3)?.result !== undefined);
+
+    stdio.send({ jsonrpc: '2.0', id: 'elicit-1', result: { action: 'accept', content: { confirm: true } } });
+    await stdio.assertSilent();
+
+    assert.equal(count(upstream, '(response)'), 0, 'the new session never asked, so nothing goes to it');
     assert.equal(closed(), false);
   });
 

@@ -328,10 +328,10 @@ The bridge never leaves a request unanswered:
 - **A request that was open when the session died gets an error, not a retry**, because it may have
   run. That includes a guarded write waiting for your confirmation: your answer to it is dropped,
   and never reaches the new session. The write's `requestId` makes a repeat safe.
-- **A failed rebuild keeps the bridge up.** The request that needed it gets an error, and the next
-  one rebuilds first.
-- **A rejected key ends the bridge.** On a 401, every open request gets the explanation, then the
-  process exits.
+- **A failed rebuild keeps the bridge up.** A rebuild fails when it is refused or gets no answer
+  within 15 seconds. The request that needed it gets an error, and the next one rebuilds first.
+- **A rejected key ends the bridge.** On a 401, the rejected request and those not sent yet get the
+  explanation, one already sent gets an error saying it may have run, then the process exits.
 
 ### Without a credential
 
