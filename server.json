@@ -1,0 +1,79 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.growwer/growwer",
+  "title": "Growwer",
+  "description": "Find media, buy sponsored articles and manage orders, sales and wallets on Growwer.",
+  "version": "1.0.0",
+  "websiteUrl": "https://growwer.com/mcp/",
+  "repository": {
+    "url": "https://github.com/viralitymedia/growwer-mcp",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/viralitymedia/growwer-mcp/main/assets/growwer-icon-256.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "256x256"
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://tool.growwer.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer <Growwer API key>. Omit it to sign in with OAuth 2.1 instead.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@growwer/mcp",
+      "version": "1.0.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "GROWWER_API_KEY",
+          "description": "Growwer API key (gw_sk_...), created at https://tool.growwer.com/user/buyer/api-keys or /user/seller/api-keys",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "GROWWER_MCP_URL",
+          "description": "Upstream MCP endpoint. Only set this to reach a non-production Growwer environment.",
+          "default": "https://tool.growwer.com/mcp",
+          "isRequired": false,
+          "format": "string"
+        }
+      ]
+    },
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/viralitymedia/growwer-mcp:1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "GROWWER_API_KEY",
+          "description": "Growwer API key (gw_sk_...), created at https://tool.growwer.com/user/buyer/api-keys or /user/seller/api-keys",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}
