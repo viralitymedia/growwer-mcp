@@ -1,0 +1,60 @@
+version: 2
+
+# Version updates arrive twice a year (1 January and 1 July) as grouped pull requests for a
+# human to review; nothing merges them automatically. Security updates follow no schedule:
+# Dependabot opens one pull request per fix as soon as an advisory is published, and the
+# dependabot-security-merge job in ci.yml merges the safe ones. Keep every version update
+# inside a group, because that job treats an ungrouped Dependabot pull request as a security
+# fix candidate.
+#
+# Repository settings this relies on (Settings > Advanced Security > Dependabot): "Dependabot
+# alerts" and "Dependabot security updates" enabled, "Grouped security updates" disabled. This
+# file defines no security group, so that toggle would bundle the fixes into one pull request.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: semiannually
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      majors:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [major]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: semiannually
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      majors:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: semiannually
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      majors:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [major]
