@@ -1,0 +1,12 @@
+interface:
+  display_name: "Growwer Track Orders"
+  short_description: "See where orders stand and review what waits for you"
+  default_prompt: "Use $growwer-track-orders to show me where my Growwer orders stand and what waits for me."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "growwer"
+      description: "Growwer sponsored content marketplace; this skill reads orders and, on your word, approves or returns them"
+      transport: "streamable_http"
+      url: "https://tool.growwer.com/mcp"

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+.DS_Store
+
+# Never let a credential near a public repository. The MCP registry signing key
+# proves ownership of the whole com.growwer namespace; generate it outside this
+# tree, but ignore it here too in case someone does not.
+*.pem
+*.key
+*.p12
+.env
+.env.*
+.npmrc
+*.tgz

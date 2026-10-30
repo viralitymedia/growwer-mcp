@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  MCP_PUBLISHER_VERSION: '1.8.7'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Type stripping runs the TypeScript sources directly, which needs 22.18+.
+        node: ['22.18', '24', 'lts/*']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  runtime-floor:
+    # The package claims Node >= 20.19. Nothing above proves that, because the
+    # test runner needs a newer Node than the published artifact does.
+    name: Built artifact on the minimum supported Node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '20.19'
+      - run: node dist/cli.js --version
+      - run: node dist/cli.js --help
+
+  manifests:
+    name: Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 'lts/*'
+      - run: node scripts/check-manifests.mjs
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}"
+          ARCHIVE="mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz"
+          curl -fsSL -o "$ARCHIVE" "$BASE/$ARCHIVE"
+          curl -fsSL -o checksums.txt "$BASE/registry_${MCP_PUBLISHER_VERSION}_checksums.txt"
+          grep " $ARCHIVE\$" checksums.txt | sha256sum -c -
+          tar xzf "$ARCHIVE" mcp-publisher
+      - run: ./mcp-publisher validate
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build -t growwer-mcp:ci .
+      - name: Smoke-test the image
+        run: docker run --rm -i growwer-mcp:ci --version
+
+  # One stable check for branch protection to require. Requiring the matrix jobs
+  # by name means renaming or dropping a Node version silently blocks every pull
+  # request on a check that will never report again.
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [test, runtime-floor, manifests, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any job did not succeed
+        run: |
+          echo '${{ toJSON(needs) }}' | jq -e 'all(.[]; .result == "success")' > /dev/null \
+            || { echo "::error::one or more CI jobs did not succeed"; exit 1; }
+
+  # Security fixes arrive as individual Dependabot pull requests; version
+  # updates always arrive grouped (.github/dependabot.yml) and wait for a human.
+  # Once the quality gate passes, merge a fix that resolves an open Dependabot
+  # alert and stays inside the caret range of the version it replaces (same
+  # major, or the same minor below 1.0); merged fixes ship with the next tagged
+  # release. Majors, 0.x minors, unparseable versions and GitHub Actions updates
+  # (GITHUB_TOKEN cannot change workflows) stay open for review.
+  dependabot-security-merge:
+    needs: [test, runtime-floor, manifests, docker, ci-passed]
+    if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      vulnerability-alerts: read
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Merge a safe security fix
+        if: >-
+          steps.meta.outputs.dependency-group == '' &&
+          steps.meta.outputs.package-ecosystem != 'github_actions'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DEPS: ${{ steps.meta.outputs.updated-dependencies-json }}
+        run: |
+          jq -e '
+            def semver: sub("^[^0-9]*"; "") | split(".")[0:3] | map(tonumber? // null);
+            length > 0 and all(.[];
+              (.prevVersion // "" | semver) as $p | (.newVersion // "" | semver) as $n
+              | ($p + $n | length == 6 and all(. != null))
+              and (if $p[0] > 0 then $n[0] == $p[0]
+                   elif $p[1] > 0 then $n[0] == 0 and $n[1] == $p[1]
+                   else false end))' <<<"$DEPS" >/dev/null \
+            || { echo "::notice::Held for review: outside the caret range of the current version."; exit 0; }
+
+          alerts=$(gh api -X GET "repos/$GH_REPO/dependabot/alerts" -f state=open \
+            -f package="$(jq -r 'map(.dependencyName) | unique | join(",")' <<<"$DEPS")" --jq length)
+          [ "$alerts" -gt 0 ] || { echo "::notice::Held for review: no open Dependabot alert."; exit 0; }
+
+          gh pr merge "$PR_URL" --squash --match-head-commit "$HEAD_SHA"

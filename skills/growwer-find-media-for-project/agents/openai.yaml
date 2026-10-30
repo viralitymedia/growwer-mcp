@@ -1,0 +1,12 @@
+interface:
+  display_name: "Growwer Find Media"
+  short_description: "Find media that fit a project and compare them"
+  default_prompt: "Use $growwer-find-media-for-project to find media for my Growwer project and compare the best candidates."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "growwer"
+      description: "Growwer sponsored content marketplace; this skill reads the catalogue and places nothing"
+      transport: "streamable_http"
+      url: "https://tool.growwer.com/mcp"

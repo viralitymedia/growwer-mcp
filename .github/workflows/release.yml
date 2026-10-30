@@ -1,0 +1,198 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  # Pinned, not `latest`: this binary is handed the registry signing key, so what
+  # executes must not change under us between two runs of the same tag.
+  MCP_PUBLISHER_VERSION: '1.8.7'
+
+jobs:
+  version:
+    name: Resolve the version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      # Full history: the ancestry check below needs to reach main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 'lts/*'
+      # A tag can be created on any commit, including one that never went through
+      # a pull request and one that rewrites this workflow. Everything downstream
+      # runs from the tagged ref, so "it was reviewed on main" is only true if it
+      # is checked here.
+      - name: Refuse a tag that is not on main
+        run: |
+          git fetch --no-tags --quiet origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at $GITHUB_SHA, which is not an ancestor of origin/main. Merge first, then tag."
+            exit 1
+          fi
+      - id: resolve
+        name: Refuse a tag that disagrees with the manifests
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$PKG_VERSION" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION" >&2
+            exit 1
+          fi
+          node scripts/check-manifests.mjs
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  catalog:
+    name: Committed catalogue matches the hosted server
+    # A release publishes what catalog.json advertises, and the hosted server is the truth it mirrors.
+    # npm, the image and the registry all wait here, so a tag pushed before the backend deploys
+    # publishes nothing and can be pushed again afterwards.
+    needs: [version]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 'lts/*'
+          cache: npm
+      - run: npm ci
+      - run: npm run check:catalog
+
+  npm:
+    name: Publish to npm
+    needs: [version, catalog]
+    runs-on: ubuntu-latest
+    # Gated deliberately: a tag can point at any commit, including one that edits
+    # this workflow, so tag-push rights would otherwise equal npm-token rights.
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 'lts/*'
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  ghcr:
+    name: Publish the image to GHCR
+    needs: [version, catalog]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@594f3bf4285d9ea8dc53c9a0c9c4092420091003 # v4.4.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # The bare version tag is the one server.json advertises and the one the
+          # MCP registry pulls to read the ownership annotation. Publishing only
+          # the v-prefixed tag would fail the registry step below, after npm has
+          # already burned this version.
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ needs.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:latest
+          annotations: |
+            index:io.modelcontextprotocol.server.name=com.growwer/growwer
+            manifest:io.modelcontextprotocol.server.name=com.growwer/growwer
+
+  registry:
+    name: Publish to the MCP registry
+    # The registry fetches the npm and OCI artifacts to verify ownership, so both
+    # must already exist when it runs.
+    needs: [version, catalog, npm, ghcr]
+    runs-on: ubuntu-latest
+    environment: mcp-registry
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}"
+          ARCHIVE="mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz"
+          curl -fsSL -o "$ARCHIVE" "$BASE/$ARCHIVE"
+          curl -fsSL -o checksums.txt "$BASE/registry_${MCP_PUBLISHER_VERSION}_checksums.txt"
+          grep " $ARCHIVE\$" checksums.txt | sha256sum -c -
+          tar xzf "$ARCHIVE" mcp-publisher
+      - run: ./mcp-publisher validate
+      # `npm publish` returns before the registry serves the version ("Your package
+      # is being processed"), and the MCP registry rejects a version npm does not
+      # list yet: it answers 404 for a version npm accepted minutes earlier. Waiting
+      # for the version in the package document, which is
+      # what that check reads, happens before login so the registry token is fresh.
+      - name: Wait until npm serves this version
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          PACKAGE="$(jq -r .name package.json)"
+          URL="https://registry.npmjs.org/${PACKAGE/\//%2f}"
+          for attempt in $(seq 1 40); do
+            if curl -fsS -H 'Cache-Control: no-cache' "$URL" | jq -e --arg v "$VERSION" '.versions | has($v)' >/dev/null; then
+              echo "npm serves $PACKAGE@$VERSION"
+              exit 0
+            fi
+            echo "attempt $attempt: npm does not list $PACKAGE@$VERSION yet"
+            sleep 15
+          done
+          echo "::error::npm still does not list $PACKAGE@$VERSION after 10 minutes. Re-run this job once it does; the version is already published and cannot be published again."
+          exit 1
+      - name: Authenticate
+        # Through the environment, not the command line: an argv-borne key is
+        # readable from /proc by anything else running in the job.
+        env:
+          MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: ./mcp-publisher login dns --domain growwer.com --private-key "$MCP_REGISTRY_PRIVATE_KEY"
+      - run: ./mcp-publisher publish
+
+  github-release:
+    name: Create the GitHub release
+    # Glama builds and lists a new version only for a GitHub release, not for a
+    # bare tag, so a version with no release stays unlisted there.
+    # Last, so a release appears only once every artifact it announces exists.
+    needs: [registry]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create the release unless it already exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "A release for $TAG already exists; leaving it as it is."
+            exit 0
+          fi
+          gh release create "$TAG" --verify-tag --latest --title "$TAG" --generate-notes

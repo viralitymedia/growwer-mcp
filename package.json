@@ -1,0 +1,65 @@
+{
+  "name": "@growwer/mcp",
+  "version": "1.0.0",
+  "mcpName": "com.growwer/growwer",
+  "description": "Stdio bridge to the hosted Growwer MCP server for the sponsored article marketplace.",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "modelcontextprotocol",
+    "sponsored-articles",
+    "link-building",
+    "digital-pr",
+    "seo",
+    "marketplace",
+    "growwer"
+  ],
+  "homepage": "https://growwer.com/mcp/",
+  "bugs": {
+    "url": "https://github.com/viralitymedia/growwer-mcp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/viralitymedia/growwer-mcp.git"
+  },
+  "license": "MIT",
+  "author": "Virality Media, S.L. <support@growwer.com> (https://growwer.com)",
+  "type": "module",
+  "bin": {
+    "growwer-mcp": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "catalog.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc --build --force",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "pretest": "npm run build",
+    "test": "node --test test/*.test.ts",
+    "prepack": "npm run build",
+    "start": "node dist/cli.js",
+    "check:manifests": "node scripts/check-manifests.mjs",
+    "sync:catalog": "node scripts/sync-catalog.mjs",
+    "check:catalog": "node scripts/sync-catalog.mjs --check"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/server": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

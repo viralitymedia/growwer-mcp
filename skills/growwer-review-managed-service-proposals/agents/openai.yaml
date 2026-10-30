@@ -1,0 +1,12 @@
+interface:
+  display_name: "Growwer Review Proposals"
+  short_description: "Compare a campaign's proposed media and decide on each"
+  default_prompt: "Use $growwer-review-managed-service-proposals to review the proposals of my Growwer managed service campaign."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "growwer"
+      description: "Growwer sponsored content marketplace; this skill decides on proposals, which spends wallet balance"
+      transport: "streamable_http"
+      url: "https://tool.growwer.com/mcp"
