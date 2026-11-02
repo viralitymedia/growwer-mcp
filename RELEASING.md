@@ -9,7 +9,8 @@ setting that no pull request can hold. Later releases need only the tag, as the 
 1. Deploy the hosted server with Growwer pull requests #406, #415 and #408. Until then
    `/public/v1/mcp` serves an older catalogue, the `catalog-drift` workflow stays red and a tag
    publishes nothing.
-2. Publish `https://growwer.com/mcp/`, which `server.json` and the package name as their website.
+2. `https://growwer.com/link-building-mcp/`, which `server.json` and the package name as their website, is live
+   (published 2026-10-31; `/mcp/` redirects to it).
 
 ## Steps
 

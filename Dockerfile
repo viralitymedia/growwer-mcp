@@ -16,7 +16,7 @@ LABEL io.modelcontextprotocol.server.name="com.growwer/growwer" \
       org.opencontainers.image.title="Growwer MCP bridge" \
       org.opencontainers.image.description="Stdio bridge to the hosted Growwer MCP server." \
       org.opencontainers.image.source="https://github.com/viralitymedia/growwer-mcp" \
-      org.opencontainers.image.url="https://growwer.com/mcp/" \
+      org.opencontainers.image.url="https://growwer.com/link-building-mcp/" \
       org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app

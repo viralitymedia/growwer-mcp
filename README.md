@@ -409,7 +409,7 @@ release has owner steps of its own, in [RELEASING.md](RELEASING.md).
 * Product and account questions: [support@growwer.com](mailto:support@growwer.com)
 * Bugs in this package: [open an issue](https://github.com/viralitymedia/growwer-mcp/issues)
 * Security: see [SECURITY.md](SECURITY.md)
-* About the server: [growwer.com/mcp](https://growwer.com/mcp/)
+* About the server: [growwer.com/link-building-mcp](https://growwer.com/link-building-mcp/)
 * Privacy policy: [growwer.com/legal/privacy-policy](https://growwer.com/legal/privacy-policy/)
 * Terms of use: [growwer.com/legal/terms-of-use](https://growwer.com/legal/terms-of-use/)
 
