@@ -87,7 +87,10 @@ jobs:
         with:
           node-version: 'lts/*'
           registry-url: https://registry.npmjs.org
-          cache: npm
+          # No dependency cache in the job that publishes, as npm's trusted-publishing
+          # guide says of release builds; false also stops setup-node turning one on
+          # by itself should package.json ever declare a packageManager.
+          package-manager-cache: false
       - name: Refuse an npm too old for trusted publishing
         run: |
           node -e '
@@ -100,29 +103,16 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      # The first version is published by hand, because npm configures a trusted
-      # publisher only for a package that exists (RELEASING.md, step 1). Its tag
-      # then finds the version on npm, and the jobs after this one still run.
-      - name: Check whether npm already has this version
-        id: published
-        env:
-          VERSION: ${{ needs.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          PACKAGE="$(jq -r .name package.json)"
-          STATUS="$(curl -sS -o package.json.npm -w '%{http_code}' -H 'Cache-Control: no-cache' "https://registry.npmjs.org/${PACKAGE/\//%2f}")"
-          case "$STATUS" in
-            404) echo "exists=false" >> "$GITHUB_OUTPUT" ;;
-            200) echo "exists=$(jq --arg v "$VERSION" '.versions | has($v)' package.json.npm)" >> "$GITHUB_OUTPUT" ;;
-            *) echo "::error::npm answered HTTP $STATUS for $PACKAGE." && exit 1 ;;
-          esac
-          rm -f package.json.npm
-      - if: steps.published.outputs.exists != 'true'
-        run: npm publish
+      # Every version, 1.0.0 included, is published here, with provenance. The
+      # pre-release published by hand to create the package (RELEASING.md, step 4)
+      # is the only one that is not.
+      - run: npm publish
 
   ghcr:
     name: Publish the image to GHCR
-    needs: [version, catalog]
+    # After npm, so no image is pushed for a version npm refused or the owner has
+    # not approved: the image carries the same code under the same version.
+    needs: [version, catalog, npm]
     runs-on: ubuntu-latest
     permissions:
       contents: read
