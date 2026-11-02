@@ -7589,6 +7589,7 @@
                         "type": "object"
                     },
                     "seller": {
+                        "description": "Your seller side. Null to a test key: selling is not available in test mode, so a test key reads neither your seller balance nor its status.",
                         "required": [
                             "balance",
                             "restricted",
@@ -7669,7 +7670,10 @@
                                 ]
                             }
                         },
-                        "type": "object"
+                        "type": [
+                            "object",
+                            "null"
+                        ]
                     },
                     "catalogue": {
                         "required": [
@@ -7709,6 +7713,14 @@
                             }
                         },
                         "type": "object"
+                    },
+                    "mode": {
+                        "description": "The mode of the key you called with. `live` works on your real account; `test` works in test mode, where nothing you do reaches real sellers, money or orders. Every response to a test key also carries the header `Growwer-Mode: test`.",
+                        "type": "string",
+                        "enum": [
+                            "live",
+                            "test"
+                        ]
                     }
                 },
                 "required": [
@@ -7720,7 +7732,8 @@
                     "buyer",
                     "seller",
                     "catalogue",
-                    "managedService"
+                    "managedService",
+                    "mode"
                 ]
             },
             "annotations": {
