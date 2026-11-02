@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { ConfigError, DEFAULT_MCP_URL, parseArgs } from '../src/config.ts';
+import { ConfigError, DEFAULT_MCP_URL, displayUrl, parseArgs } from '../src/config.ts';
 
 describe('parseArgs', () => {
   it('defaults to serving the hosted endpoint with no credential', () => {
@@ -112,6 +112,77 @@ describe('parseArgs', () => {
         return true;
       }
     );
+  });
+
+  it('refuses a URL carrying a user name or password, without echoing either', () => {
+    for (const [args, env, source] of [
+      [['--url', 'https://alice:hunter2pass@mcp.example.test/mcp'], {}, /^--url /],
+      [[], { GROWWER_MCP_URL: 'https://alice:hunter2pass@mcp.example.test/mcp' }, /^GROWWER_MCP_URL environment variable /],
+      [['--url', 'https://hunter2token@mcp.example.test/mcp'], {}, /^--url /],
+    ] as const) {
+      assert.throws(
+        () => parseArgs(args, env),
+        (error: Error) => {
+          assert.ok(error instanceof ConfigError);
+          assert.match(error.message, source);
+          assert.match(error.message, /must not carry a user name or password/);
+          assert.doesNotMatch(error.message, /alice|hunter2/);
+
+          return true;
+        }
+      );
+    }
+  });
+
+  it('keeps a query on the URL it sends to, and prints only the origin and path', () => {
+    const config = parseArgs(['--url', 'https://mcp.example.test/mcp?access_token=XYZSECRET#frag'], {});
+
+    assert.equal(config.url.search, '?access_token=XYZSECRET');
+    assert.equal(displayUrl(config.url), 'https://mcp.example.test/mcp');
+  });
+
+  it('refuses any credential character outside printable ASCII, and none of the value is echoed', () => {
+    for (const character of ['\t', '\u007f', 'é', '\u2028']) {
+      const key = `gw_sk_abcdef${character}SECRETTAIL`;
+
+      for (const parse of [
+        () => parseArgs([], { GROWWER_API_KEY: key }),
+        () => parseArgs(['--header', `Authorization: Bearer ${key}`], {}),
+        () => parseArgs(['--header', `X-Api-Key: ${key}`], {}),
+      ]) {
+        assert.throws(parse, (error: Error) => {
+          assert.ok(error instanceof ConfigError);
+          assert.doesNotMatch(error.message, /abcdef|SECRETTAIL/);
+          assert.ok(!error.message.includes(character));
+
+          return true;
+        });
+      }
+    }
+  });
+
+  it('refuses a --header name outside printable ASCII without echoing it', () => {
+    assert.throws(
+      () => parseArgs(['--header', 'X-Na\u00e9me: value'], {}),
+      (error: Error) => {
+        assert.match(error.message, /^A --header name contains a character that cannot go in an HTTP header/);
+        assert.doesNotMatch(error.message, /X-Na/);
+
+        return true;
+      }
+    );
+  });
+
+  it('still accepts a key with surrounding whitespace, such as the newline a paste leaves at its end', () => {
+    const config = parseArgs([], { GROWWER_API_KEY: '  gw_sk_abc\r\n' });
+
+    assert.equal(config.headers.Authorization, 'Bearer gw_sk_abc');
+  });
+
+  it('ignores an unprintable GROWWER_API_KEY that an Authorization --header overrides, since it is not sent', () => {
+    const config = parseArgs(['--header', 'Authorization: Bearer gw_sk_abc'], { GROWWER_API_KEY: 'gw_sk_x\ny' });
+
+    assert.equal(config.headers.Authorization, 'Bearer gw_sk_abc');
   });
 
   it('rejects malformed input', () => {

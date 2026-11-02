@@ -251,7 +251,7 @@ describe('a request the upstream does not answer', () => {
 
     // The first send finds the pooled connection dead, and only the next one dials the closed port.
     stdio.send(toolsList(2));
-    assertErrorOn(await stdio.next(), 2, /fetch failed/);
+    assertErrorOn(await stdio.next(), 2, /TypeError \((UND_ERR_SOCKET|ECONNRESET)\)/);
 
     stdio.send(toolsList(3));
     assertErrorOn(await stdio.next(), 3, /ECONNREFUSED/);
@@ -272,7 +272,7 @@ describe('a request the upstream does not answer', () => {
     });
 
     stdio.send(toolsList(2));
-    assertErrorOn(await stdio.next(), 2, /content type/i);
+    assertErrorOn(await stdio.next(), 2, /CLIENT_HTTP_UNEXPECTED_CONTENT/);
   });
 
   const endings: [string, (stream: SseStream) => void][] = [
@@ -1262,3 +1262,111 @@ describe('a guarded write', () => {
   });
 });
 
+
+describe('a failed request, on whether it may have run', () => {
+  const mayHaveRun = /It may have run, so check before repeating it\./;
+
+  /** Fails the first `tools/call` with `fail`, once the upstream has read the whole request. */
+  const onFirstCall = (fail: (exchange: Exchange) => void): FakeUpstreamOptions => {
+    let pending = true;
+
+    return {
+      script: (exchange) => {
+        if (exchange.message.method !== 'tools/call' || !pending) {
+          return false;
+        }
+
+        pending = false;
+        fail(exchange);
+
+        return true;
+      },
+    };
+  };
+
+  it('says so when the stream ends without a result', async () => {
+    const { stdio } = await connected(onFirstCall(({ sse }) => sse().end()));
+
+    stdio.send(toolCall(2));
+    assertErrorOn(await stdio.next(), 2, /stream ended without a result\. It may have run/);
+  });
+
+  it('says so when the connection drops after the upstream read the request', async () => {
+    const { stdio, upstream } = await connected(onFirstCall(({ drop }) => drop()));
+
+    stdio.send(toolCall(2));
+    assertErrorOn(await stdio.next(), 2, mayHaveRun);
+    assert.equal(count(upstream, 'tools/call'), 1, 'it may have run, so it is not repeated');
+  });
+
+  it('says so when a proxy answers 502 after the upstream read the request', async () => {
+    const { stdio } = await connected(onFirstCall(({ reply }) => reply(502, '<html>Bad Gateway</html>', 'text/html')));
+
+    stdio.send(toolCall(2));
+    assertErrorOn(await stdio.next(), 2, /HTTP 502 Bad Gateway\. It may have run/);
+  });
+
+  it('does not say so when the connection is refused, so nothing was sent', async () => {
+    const { stdio, upstream } = await connected();
+
+    await upstream.close();
+
+    // The first send finds the pooled connection dead after writing to it; only the next one dials
+    // the closed port, and that one never left.
+    stdio.send(toolsList(2));
+    assertErrorOn(await stdio.next(), 2, mayHaveRun);
+
+    stdio.send(toolCall(3));
+
+    const refused = await stdio.next();
+
+    assertErrorOn(refused, 3, /ECONNREFUSED/);
+    assert.doesNotMatch(refused.error?.message ?? '', mayHaveRun);
+  });
+
+  it('does not say so for a first request to an upstream that is not listening', async () => {
+    const upstream = await startFakeUpstream();
+    const { url } = upstream;
+
+    await upstream.close();
+
+    const stdio = new StdioPair();
+    const bridge = await startBridge({ url, headers: {}, stdin: stdio.toServer, stdout: stdio.fromServer });
+
+    after(async () => {
+      await bridge.close();
+    });
+
+    stdio.send(initialize);
+
+    const refused = await stdio.next();
+
+    assertErrorOn(refused, 1, /ECONNREFUSED/);
+    assert.doesNotMatch(refused.error?.message ?? '', mayHaveRun);
+  });
+
+  it('does not say so for a request held back by a replay that failed, which never sent it', async () => {
+    let failReplay = true;
+
+    const { stdio, upstream } = await connected({
+      script: ({ message, reply }) => {
+        if (message.method === 'initialize' && message.id !== 1 && failReplay) {
+          failReplay = false;
+          reply(503);
+
+          return true;
+        }
+
+        return false;
+      },
+    });
+
+    upstream.evict();
+    stdio.send(toolCall(2));
+
+    const failed = await stdio.next();
+
+    assertErrorOn(failed, 2, /HTTP 503/);
+    assert.doesNotMatch(failed.error?.message ?? '', mayHaveRun);
+  });
+});

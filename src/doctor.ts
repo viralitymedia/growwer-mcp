@@ -11,6 +11,7 @@ import {
   SELLER_KEYS_URL,
   TOKEN_ENV_VAR,
   TOKEN_FORMAT,
+  displayUrl,
   type Config,
 } from './config.ts';
 import { describeFailure } from './log.ts';
@@ -35,7 +36,7 @@ const publicPart = (token: string): string =>
  */
 export const runDoctor = async (config: Config, write: (text: string) => void): Promise<number> => {
   write(`growwer-mcp ${PACKAGE_VERSION}`);
-  write(line('Endpoint', config.url.href));
+  write(line('Endpoint', displayUrl(config.url)));
   write(line('Credential', config.token === undefined ? `missing (set ${TOKEN_ENV_VAR})` : publicPart(config.token)));
 
   if (config.token === undefined) {

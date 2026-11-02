@@ -39,6 +39,20 @@ export class ConfigError extends Error {
 }
 
 /**
+ * Only printable ASCII can travel in an HTTP header. Anything else — most often a line break
+ * from a two-line paste — makes undici refuse the header with a message that quotes the whole value,
+ * so it is refused here first, by name and without the value: it is the credential, or may be.
+ */
+const PRINTABLE_ASCII = /^[\x20-\x7E]*$/;
+
+const UNPRINTABLE =
+  'contains a character that cannot go in an HTTP header, such as a line break, a tab or a NUL, so it was not used ' +
+  'and is not shown. Copy it again as a single line.';
+
+/** How a printed endpoint reads: no user name, password, query or fragment, which may carry a credential. */
+export const displayUrl = (url: URL): string => `${url.origin}${url.pathname}`;
+
+/**
  * Never echo the argument back. The value of a `--header` is routinely the
  * credential itself, and the likeliest way to reach this error is omitting the
  * colon — so quoting what was passed would print the token into the terminal and
@@ -58,6 +72,14 @@ const parseHeader = (raw: string): readonly [string, string] => {
     throw new ConfigError('--header expects "Name: value" — the name or the value is empty.');
   }
 
+  if (!PRINTABLE_ASCII.test(name)) {
+    throw new ConfigError(`A --header name ${UNPRINTABLE}`);
+  }
+
+  if (!PRINTABLE_ASCII.test(value)) {
+    throw new ConfigError(`The value of --header "${name}" ${UNPRINTABLE}`);
+  }
+
   return [name, value];
 };
 
@@ -74,6 +96,12 @@ const parseUrl = (raw: string, source: string): URL => {
     // The raw value is not echoed: an endpoint string is an occasional place to
     // find a credential, and it is untrusted input either way.
     throw new ConfigError(`${source} is not a valid URL.`);
+  }
+
+  // A user name or password in the URL is a credential the bridge would print and undici would refuse
+  // with a message quoting it. Neither part is echoed.
+  if (url.username !== '' || url.password !== '') {
+    throw new ConfigError(`${source} must not carry a user name or password; set the key in ${TOKEN_ENV_VAR} instead.`);
   }
 
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
@@ -170,6 +198,10 @@ export const parseArgs = (argv: readonly string[], env: NodeJS.ProcessEnv): Conf
       warnings.push(`Both ${TOKEN_ENV_VAR} and an Authorization --header were given; the header wins.`);
     }
   } else if (envToken !== '') {
+    if (!PRINTABLE_ASCII.test(envToken)) {
+      throw new ConfigError(`${TOKEN_ENV_VAR} ${UNPRINTABLE}`);
+    }
+
     token = normaliseToken(envToken);
   }
 

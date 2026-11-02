@@ -16,8 +16,8 @@ import {
 } from '@modelcontextprotocol/client';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 
-import { BUYER_KEYS_URL, SELLER_KEYS_URL, TOKEN_ENV_VAR } from './config.ts';
-import { describeFailure, log } from './log.ts';
+import { BUYER_KEYS_URL, SELLER_KEYS_URL, TOKEN_ENV_VAR, displayUrl } from './config.ts';
+import { BridgeFailure, describeFailure, log } from './log.ts';
 import { USER_AGENT } from './version.ts';
 
 /**
@@ -65,6 +65,28 @@ const isSessionGone = (error: unknown): boolean => error instanceof SdkHttpError
 
 const isCredentialRejected = (error: unknown): boolean =>
   error instanceof UnauthorizedError || (error instanceof SdkHttpError && error.status === 401);
+
+/**
+ * The codes undici puts on a `fetch failed` cause when no connection was made, so no byte of the
+ * request left: the address did not resolve, nothing listened, the network had no route, or the
+ * connect timed out. Every other failure of a request already sent may have come after the upstream
+ * ran it, such as a reset mid-response or a proxy's 502. A code missing here errs towards saying the
+ * request may have run, which costs a check, never a duplicate write.
+ */
+const CONNECT_FAILURES: ReadonlySet<string> = new Set([
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+const isConnectFailure = (error: unknown): boolean => {
+  const code = (error instanceof Error ? (error.cause as { code?: unknown } | undefined) : undefined)?.code;
+
+  return typeof code === 'string' && CONNECT_FAILURES.has(code);
+};
 
 /**
  * Splices a stdio transport onto a Streamable HTTP transport at the transport
@@ -201,7 +223,7 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
     const timeoutMs = options.replayTimeoutMs ?? REPLAY_TIMEOUT_MS;
     const expiry = new AbortController();
     const timer = setTimeout(() => {
-      expiry.abort(new Error(`the upstream did not answer the replayed handshake within ${timeoutMs / 1_000} s`));
+      expiry.abort(new BridgeFailure(`the upstream did not answer the replayed handshake within ${timeoutMs / 1_000} s`));
     }, timeoutMs);
 
     await new Promise<void>((resolve, reject) => {
@@ -209,7 +231,7 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
         if (isJSONRPCResultResponse(message)) {
           resolve();
         } else {
-          reject(new Error('the upstream refused the replayed handshake'));
+          reject(new BridgeFailure('the upstream refused the replayed handshake'));
         }
       };
 
@@ -219,7 +241,7 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
       next
         .send(replay, {
           requestSignal: expiry.signal,
-          onRequestStreamEnd: () => reject(new Error('the upstream did not answer the replayed handshake')),
+          onRequestStreamEnd: () => reject(new BridgeFailure('the upstream did not answer the replayed handshake')),
         })
         .catch(reject);
     }).finally(() => {
@@ -333,10 +355,14 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
 
     const reason = describeFailure(error);
 
-    log(`growwer-mcp: could not reach ${options.url.origin}${options.url.pathname}: ${reason}`);
+    log(`growwer-mcp: could not reach ${displayUrl(options.url)}: ${reason}`);
 
     if (isJSONRPCRequest(message) && open.has(message.id)) {
-      await fail(message.id, `The Growwer MCP server could not answer: ${reason}.`);
+      // A request still waiting for a session (undefined) was never sent; one sent on a transport
+      // reached the upstream unless the connection itself failed.
+      const sent = open.get(message.id) !== undefined && !isConnectFailure(error);
+
+      await fail(message.id, `The Growwer MCP server could not answer: ${reason}.${sent ? ` ${MAY_HAVE_RUN}` : ''}`);
     }
   }
 
@@ -370,7 +396,7 @@ export const startBridge = async (options: BridgeOptions): Promise<Bridge> => {
         onRequestStreamEnd: () => {
           // This also fires after a normal end, when the response has already cleared the entry.
           if (id !== undefined && open.get(id) === used) {
-            void fail(id, 'The upstream stream ended without a result.');
+            void fail(id, `The upstream stream ended without a result. ${MAY_HAVE_RUN}`);
           }
         },
       });

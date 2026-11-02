@@ -11,7 +11,7 @@ import type {
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 
 import { CATALOG, promptArgumentsSchema } from './catalog.ts';
-import { BUYER_KEYS_URL, DEFAULT_MCP_URL, SELLER_KEYS_URL, TOKEN_ENV_VAR } from './config.ts';
+import { BUYER_KEYS_URL, DEFAULT_MCP_URL, SELLER_KEYS_URL, TOKEN_ENV_VAR, displayUrl } from './config.ts';
 import { describeFailure } from './log.ts';
 import { PACKAGE_VERSION } from './version.ts';
 
@@ -39,7 +39,7 @@ const withPublicClient = async <T>(url: URL, read: (client: Client) => Promise<T
 };
 
 const unreachable = (subject: string, url: URL, error: unknown): string =>
-  `${subject} could not be reached at ${publicEndpoint(url).href}: ${describeFailure(error)}`;
+  `${subject} could not be reached at ${displayUrl(publicEndpoint(url))}: ${describeFailure(error)}`;
 
 const callPublicTool = async (url: URL, name: string, args: Record<string, unknown>): Promise<CallToolResult> => {
   try {
@@ -76,7 +76,7 @@ const setupText = (url: URL): string =>
     '  2. Create a key, read and write if the assistant should change anything. It is shown once and starts with "gw_sk_".',
     `  3. Restart this MCP server with ${TOKEN_ENV_VAR}=gw_sk_… in its environment.`,
     '',
-    `Upstream endpoint: ${url.href}`,
+    `Upstream endpoint: ${displayUrl(url)}`,
     '',
     'Clients that speak remote MCP (Claude, ChatGPT, Claude Code, Cursor, Codex, VS Code,',
     `Gemini CLI) do not need this bridge at all: point them straight at ${DEFAULT_MCP_URL}`,

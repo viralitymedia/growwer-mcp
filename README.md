@@ -291,10 +291,12 @@ npx -y @growwer/mcp doctor     # check the endpoint, the key, and list the tools
 ### Docker
 
 ```bash
-docker run --rm -i -e GROWWER_API_KEY=gw_sk_your_key ghcr.io/viralitymedia/growwer-mcp
+docker run --rm -i -e GROWWER_API_KEY ghcr.io/viralitymedia/growwer-mcp
 ```
 
-`-i` is required and `-t` must be omitted: the MCP transport is this process's stdin and stdout.
+`-e GROWWER_API_KEY` with no value passes on the variable exported above, so the key stays out of the
+command line, `ps` and your shell history. `-i` is required and `-t` must be omitted: the MCP
+transport is this process's stdin and stdout.
 
 ### Options
 
@@ -320,8 +322,10 @@ The bridge never leaves a request unanswered:
 
 - **Every request gets a reply.** A status such as 429 or 503, a refused connection, a wrong content
   type or a stream that ends with no result reaches your client as a JSON-RPC error on that
-  request's id, naming the status or the cause. An upstream body is never repeated, in that error or
-  on stderr. Notifications and responses have no one to answer, so a failure of theirs is logged.
+  request's id, naming the status, or the error's class and code. No error message is repeated, an
+  upstream body included, in that error or on stderr. When the request had already been sent and
+  the failure came after the connection was made, such as a dropped connection, a proxy's 502 or a
+  stream with no result, the error also says it may have run. Notifications and responses have no one to answer, so a failure of theirs is logged.
 - **Only a 404 rebuilds the session**, once however many requests hit it at the same time, and a 400
   never does. The request that got the 404 never ran, so it alone is sent again, once. A response is
   never sent again.

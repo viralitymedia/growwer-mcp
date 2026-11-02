@@ -29,8 +29,14 @@ own account and your own data.
 * `growwer-mcp doctor` prints at most the first 18 characters of a Growwer key:
   the `gw_sk_` marker and the public prefix Growwer uses for lookup, not the
   secret. A credential in any other format prints nothing.
-* Errors from the upstream reach the host and stderr as a status or a cause.
-  The bridge does not repeat the body of an upstream error.
+* Errors from the upstream reach the host and stderr as a status, or as an error
+  class and code. The bridge does not repeat the body of an upstream error, or the
+  message of any other error, which may quote a header value or a URL.
+* A key or `--header` value with a character outside printable ASCII, such as the
+  line break of a two-line paste, is refused before anything is sent, with an
+  error that names the variable or the header and shows none of the value.
+* An endpoint URL with a user name or password is refused, and the endpoint is
+  printed as its origin and path only, never with a query or fragment.
 * The default endpoint is `https://tool.growwer.com/mcp`. `--url` /
   `GROWWER_MCP_URL` override it; anything you point at receives the key, so only
   point it at a Growwer environment you trust. Overriding it to a host other
