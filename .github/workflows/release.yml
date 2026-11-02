@@ -72,11 +72,15 @@ jobs:
     needs: [version, catalog]
     runs-on: ubuntu-latest
     # Gated deliberately: a tag can point at any commit, including one that edits
-    # this workflow, so tag-push rights would otherwise equal npm-token rights.
+    # this workflow, so tag-push rights would otherwise equal publish rights. npm
+    # trusts this workflow in this environment only (trusted publishing), and the
+    # environment's reviewers and tag rule are what stand between a tag and npm.
     environment: npm-release
     permissions:
       contents: read
-      id-token: write # npm provenance
+      # Trusted publishing: npm exchanges this job's OIDC token for a one-off
+      # publish credential, and signs provenance with it. No npm token is stored.
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -84,12 +88,37 @@ jobs:
           node-version: 'lts/*'
           registry-url: https://registry.npmjs.org
           cache: npm
+      - name: Refuse an npm too old for trusted publishing
+        run: |
+          node -e '
+            const [major, minor, patch] = process.argv[1].split(".").map(Number);
+            if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) {
+              console.error("::error::npm " + process.argv[1] + " cannot publish through OIDC; trusted publishing needs 11.5.1 or later.");
+              process.exit(1);
+            }
+          ' "$(npm --version)"
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - run: npm publish
+      # The first version is published by hand, because npm configures a trusted
+      # publisher only for a package that exists (RELEASING.md, step 1). Its tag
+      # then finds the version on npm, and the jobs after this one still run.
+      - name: Check whether npm already has this version
+        id: published
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          PACKAGE="$(jq -r .name package.json)"
+          STATUS="$(curl -sS -o package.json.npm -w '%{http_code}' -H 'Cache-Control: no-cache' "https://registry.npmjs.org/${PACKAGE/\//%2f}")"
+          case "$STATUS" in
+            404) echo "exists=false" >> "$GITHUB_OUTPUT" ;;
+            200) echo "exists=$(jq --arg v "$VERSION" '.versions | has($v)' package.json.npm)" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::npm answered HTTP $STATUS for $PACKAGE." && exit 1 ;;
+          esac
+          rm -f package.json.npm
+      - if: steps.published.outputs.exists != 'true'
+        run: npm publish
 
   ghcr:
     name: Publish the image to GHCR
@@ -167,8 +196,12 @@ jobs:
           echo "::error::npm still does not list $PACKAGE@$VERSION after 10 minutes. Re-run this job once it does; the version is already published and cannot be published again."
           exit 1
       - name: Authenticate
-        # Through the environment, not the command line: an argv-borne key is
-        # readable from /proc by anything else running in the job.
+        # The key is on mcp-publisher's command line, readable from /proc by anything
+        # else running in this job while it runs; nothing else does. 1.8.7 takes an
+        # in-process key only as --private-key, with no file or environment form
+        # (cmd/publisher/commands/login.go). Passing it through env only keeps it out
+        # of the command shown in the log. A KMS signer (google-kms, azure-key-vault)
+        # is the way to keep it out of the job altogether.
         env:
           MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
         run: ./mcp-publisher login dns --domain growwer.com --private-key "$MCP_REGISTRY_PRIVATE_KEY"

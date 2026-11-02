@@ -1,8 +1,8 @@
 # Releasing
 
 The steps that publish `v1.0.0`. They are the owner's: each one needs an account, a secret or a
-setting that no pull request can hold. Later releases need only the tag, as the README's
-[Development](README.md#development) section says.
+setting that no pull request can hold. Later releases need only the tag and the owner's approval of
+the two deployments it asks for, as the README's [Development](README.md#development) section says.
 
 ## Before anything here
 
@@ -14,8 +14,41 @@ setting that no pull request can hold. Later releases need only the tag, as the 
 
 ## Steps
 
-1. **npm.** Create the npm organisation `growwer`. Create an automation token that can publish
-   `@growwer/mcp`, and store it as the secret `NPM_TOKEN` in the GitHub environment `npm-release`.
+1. **npm and the release gates.** The workflow publishes to npm through trusted publishing (OIDC),
+   with no npm token stored anywhere. npm configures a trusted publisher only for a package that
+   already exists, so `v1.0.0` alone is published by hand.
+
+   1. Create the npm organisation `growwer`.
+   2. Publish `v1.0.0` with a short-lived granular token. Run the `catalog-drift` workflow first and
+      stop if it is red (step 4): the version is immutable, catalogue included. On npmjs.com, create a
+      granular access token with read and write on the `@growwer` scope and the shortest expiry
+      offered. Then, in a clean checkout of the `main` commit you will tag in step 4:
+
+      ```bash
+      npm ci && npm test
+      read -rs NPM_TOKEN && export NPM_TOKEN   # paste the token: not echoed, not kept in history
+      printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' > /tmp/npmrc-growwer-release
+      npm publish --provenance=false --userconfig /tmp/npmrc-growwer-release
+      rm /tmp/npmrc-growwer-release && unset NPM_TOKEN
+      ```
+
+      The npmrc holds the variable's name, not the token. `--provenance=false` is needed because
+      provenance can only be signed in CI, so `1.0.0` alone ships without it.
+   3. Configure the trusted publisher, then remove every token. In the package's settings on
+      npmjs.com, add a trusted publisher for GitHub Actions: organisation `viralitymedia`,
+      repository `growwer-mcp`, workflow `release.yml`, environment `npm-release`. Set publishing
+      access to "Require two-factor authentication and disallow tokens", revoke the granular token,
+      and delete the secret `NPM_TOKEN` wherever one was stored (repository or environment).
+   4. Required reviewers on both environments. Create the GitHub environments `npm-release` and
+      `mcp-registry`, and add the owner as a required reviewer on each, so no job in either runs
+      until the owner approves it.
+   5. A deployment rule on each environment. Under "Deployment branches and tags", choose "Selected
+      branches and tags" and add a single tag rule, `v*`, on both `npm-release` and
+      `mcp-registry`, so a branch, or a workflow edited on one, cannot deploy to either.
+   6. A tag ruleset that restricts who creates `v*` tags: target `refs/tags/v*`, the "Restrict
+      creations" rule, and repository admins as the only bypass. A tag starts a release, so only
+      those who may release can create one. Keep it separate from the step 3 ruleset, which has no
+      bypass at all.
 
 2. **MCP registry.** The registry proves ownership of `com.growwer` through DNS.
 
@@ -37,7 +70,8 @@ setting that no pull request can hold. Later releases need only the tag, as the 
 3. **Repository settings.**
    - A ruleset on `main`: pull requests only, squash or merge, no force pushes and no deletion, with
      the `CI passed` check required and up to date, and organisation admins as the only bypass.
-   - A ruleset on the tags `refs/tags/v*`: no force pushes and no deletion, with no bypass.
+   - A ruleset on the tags `refs/tags/v*`: no force pushes and no deletion, with no bypass. Who may
+     create such a tag is the separate ruleset of step 1.6.
    - Under Settings > Advanced Security > Dependabot, "Dependabot alerts" and "Dependabot security
      updates" enabled, "Grouped security updates" disabled. `.github/dependabot.yml` says why.
 
@@ -50,8 +84,9 @@ setting that no pull request can hold. Later releases need only the tag, as the 
    git push origin v1.0.0
    ```
 
-   The `Release` workflow checks the catalogue again, then publishes npm, the GHCR image, the registry
-   entry and the GitHub release. Then check the package from npm:
+   The `Release` workflow checks the catalogue again, then asks the owner to approve the
+   `npm-release` and `mcp-registry` deployments. Its npm job finds `1.0.0` already on npm from
+   step 1.2 and skips the publish; the GHCR image, the registry entry and the GitHub release follow. Then check the package from npm:
 
    ```bash
    npx -y @growwer/mcp --version

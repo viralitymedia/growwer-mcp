@@ -404,8 +404,9 @@ node scripts/e2e-host.mjs --url http://localhost:<stack port>/mcp
 
 Releases are cut by tagging. `npm version <patch|minor|major>`, mirror the new version into
 `server.json` (`.version`, the npm package entry, and the image tag), run
-`npm run check:manifests`, then push the tag. CI publishes to npm, GHCR and the MCP registry, in that
-order, then creates the GitHub release, which is what Glama builds a new version from. The first
+`npm run check:manifests`, then push the tag and approve the `npm-release` and `mcp-registry`
+deployments it asks for. CI publishes to npm through trusted publishing, GHCR and the MCP registry,
+in that order, then creates the GitHub release, which is what Glama builds a new version from. The first
 release has owner steps of its own, in [RELEASING.md](RELEASING.md).
 
 ## Support
