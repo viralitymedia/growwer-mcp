@@ -109,9 +109,12 @@ key instead.
 
 ```bash
 claude mcp add --transport http growwer https://tool.growwer.com/mcp
-# Then run /mcp to sign in. With an API key instead:
-claude mcp add --transport http growwer https://tool.growwer.com/mcp --header "Authorization: Bearer gw_sk_YOUR_KEY"
+# Then run /mcp to sign in. With an API key instead, read from GROWWER_API_KEY when Claude Code starts:
+claude mcp add --transport http growwer https://tool.growwer.com/mcp --header 'Authorization: Bearer ${GROWWER_API_KEY}'
 ```
+
+The single quotes keep `${GROWWER_API_KEY}` as written: Claude Code stores the reference and expands
+it from its own environment, so the key is never on a command line or in its configuration.
 
 **Cursor** (`~/.cursor/mcp.json`)
 
@@ -283,7 +286,7 @@ They need no additional backend endpoint or local executable.
 ### Run it
 
 ```bash
-export GROWWER_API_KEY=gw_sk_your_key
+read -rs GROWWER_API_KEY && export GROWWER_API_KEY   # paste the key: not echoed, not kept in history
 npx -y @growwer/mcp            # serve on stdio
 npx -y @growwer/mcp doctor     # check the endpoint, the key, and list the tools
 ```
