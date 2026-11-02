@@ -68,24 +68,30 @@ const isCredentialRejected = (error: unknown): boolean =>
 
 /**
  * The codes undici puts on a `fetch failed` cause when no connection was made, so no byte of the
- * request left: the address did not resolve, nothing listened, the network had no route, or the
- * connect timed out. Every other failure of a request already sent may have come after the upstream
- * ran it, such as a reset mid-response or a proxy's 502. A code missing here errs towards saying the
- * request may have run, which costs a check, never a duplicate write.
+ * request left: the address did not resolve, nothing listened, or the connect timed out. Every other
+ * failure of a request already sent may have come after the upstream ran it, such as a reset
+ * mid-response or a proxy's 502. A code missing here errs towards saying the request may have run,
+ * which costs a check, never a duplicate write.
  */
-const CONNECT_FAILURES: ReadonlySet<string> = new Set([
-  'ECONNREFUSED',
-  'ENOTFOUND',
-  'EAI_AGAIN',
-  'EHOSTUNREACH',
-  'ENETUNREACH',
-  'UND_ERR_CONNECT_TIMEOUT',
-]);
+const CONNECT_FAILURES: ReadonlySet<string> = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT']);
 
-const isConnectFailure = (error: unknown): boolean => {
-  const code = (error instanceof Error ? (error.cause as { code?: unknown } | undefined) : undefined)?.code;
+/**
+ * No route to the host or to its network. An established socket reports these too, on a read or a
+ * write, when the route goes mid-response, so they show that nothing left only when the call that
+ * failed was the connect itself.
+ */
+const UNREACHABLE: ReadonlySet<string> = new Set(['EHOSTUNREACH', 'ENETUNREACH']);
 
-  return typeof code === 'string' && CONNECT_FAILURES.has(code);
+/** Whether a failed request certainly never reached the upstream. Exported for its tests. */
+export const isConnectFailure = (error: unknown): boolean => {
+  const cause = (error instanceof Error ? error.cause : undefined) as { code?: unknown; syscall?: unknown } | undefined;
+  const code = cause?.code;
+
+  if (typeof code !== 'string') {
+    return false;
+  }
+
+  return CONNECT_FAILURES.has(code) || (UNREACHABLE.has(code) && cause?.syscall === 'connect');
 };
 
 /**

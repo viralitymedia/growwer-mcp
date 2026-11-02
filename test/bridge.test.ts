@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 import { after, describe, it } from 'node:test';
 
-import { startBridge, type BridgeOptions } from '../src/bridge.ts';
+import { isConnectFailure, startBridge, type BridgeOptions } from '../src/bridge.ts';
 import {
   StdioPair,
   startFakeUpstream,
@@ -1368,5 +1368,44 @@ describe('a failed request, on whether it may have run', () => {
 
     assertErrorOn(failed, 2, /HTTP 503/);
     assert.doesNotMatch(failed.error?.message ?? '', mayHaveRun);
+  });
+});
+
+describe('isConnectFailure, which decides whether a failed request never left', () => {
+  /** What undici throws for a network failure: "fetch failed", with the socket's error as its cause. */
+  const fetchFailed = (code: string, syscall?: string): TypeError =>
+    new TypeError('fetch failed', { cause: Object.assign(new Error(code), { code }, syscall === undefined ? {} : { syscall }) });
+
+  it('counts a host or network with no route as a connect failure only while connecting', () => {
+    for (const code of ['EHOSTUNREACH', 'ENETUNREACH']) {
+      assert.equal(isConnectFailure(fetchFailed(code, 'connect')), true, `${code} on connect`);
+      // The same codes come from an established socket that loses its route mid-response, after the
+      // upstream may have read and run the request.
+      assert.equal(isConnectFailure(fetchFailed(code, 'read')), false, `${code} on read`);
+      assert.equal(isConnectFailure(fetchFailed(code, 'write')), false, `${code} on write`);
+      assert.equal(isConnectFailure(fetchFailed(code)), false, `${code} with no syscall`);
+    }
+  });
+
+  it('counts the codes that only connecting produces, whatever the syscall', () => {
+    for (const [code, syscall] of [
+      ['ECONNREFUSED', 'connect'],
+      ['ENOTFOUND', 'getaddrinfo'],
+      ['EAI_AGAIN', 'getaddrinfo'],
+      ['UND_ERR_CONNECT_TIMEOUT', undefined],
+    ] as const) {
+      assert.equal(isConnectFailure(fetchFailed(code, syscall)), true, code);
+    }
+  });
+
+  it('does not count a failure of a connection that was made, or one with no code', () => {
+    for (const error of [
+      fetchFailed('ECONNRESET', 'read'),
+      fetchFailed('UND_ERR_SOCKET'),
+      new TypeError('fetch failed'),
+      new Error('ECONNREFUSED'),
+    ]) {
+      assert.equal(isConnectFailure(error), false, String((error.cause as { code?: string } | undefined)?.code ?? error.message));
+    }
   });
 });
