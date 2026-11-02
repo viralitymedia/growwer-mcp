@@ -109,9 +109,12 @@ key instead.
 
 ```bash
 claude mcp add --transport http growwer https://tool.growwer.com/mcp
-# Then run /mcp to sign in. With an API key instead:
-claude mcp add --transport http growwer https://tool.growwer.com/mcp --header "Authorization: Bearer gw_sk_YOUR_KEY"
+# Then run /mcp to sign in. With an API key instead, read from GROWWER_API_KEY when Claude Code starts:
+claude mcp add --transport http growwer https://tool.growwer.com/mcp --header 'Authorization: Bearer ${GROWWER_API_KEY}'
 ```
+
+The single quotes keep `${GROWWER_API_KEY}` as written: Claude Code stores the reference and expands
+it from its own environment, so the key is never on a command line or in its configuration.
 
 **Cursor** (`~/.cursor/mcp.json`)
 
@@ -283,7 +286,7 @@ They need no additional backend endpoint or local executable.
 ### Run it
 
 ```bash
-export GROWWER_API_KEY=gw_sk_your_key
+read -rs GROWWER_API_KEY && export GROWWER_API_KEY   # paste the key: not echoed, not kept in history
 npx -y @growwer/mcp            # serve on stdio
 npx -y @growwer/mcp doctor     # check the endpoint, the key, and list the tools
 ```
@@ -291,10 +294,12 @@ npx -y @growwer/mcp doctor     # check the endpoint, the key, and list the tools
 ### Docker
 
 ```bash
-docker run --rm -i -e GROWWER_API_KEY=gw_sk_your_key ghcr.io/viralitymedia/growwer-mcp
+docker run --rm -i -e GROWWER_API_KEY ghcr.io/viralitymedia/growwer-mcp
 ```
 
-`-i` is required and `-t` must be omitted: the MCP transport is this process's stdin and stdout.
+`-e GROWWER_API_KEY` with no value passes on the variable exported above, so the key stays out of the
+command line, `ps` and your shell history. `-i` is required and `-t` must be omitted: the MCP
+transport is this process's stdin and stdout.
 
 ### Options
 
@@ -320,8 +325,10 @@ The bridge never leaves a request unanswered:
 
 - **Every request gets a reply.** A status such as 429 or 503, a refused connection, a wrong content
   type or a stream that ends with no result reaches your client as a JSON-RPC error on that
-  request's id, naming the status or the cause. An upstream body is never repeated, in that error or
-  on stderr. Notifications and responses have no one to answer, so a failure of theirs is logged.
+  request's id, naming the status, or the error's class and code. No error message is repeated, an
+  upstream body included, in that error or on stderr. When the request had already been sent and
+  the failure came after the connection was made, such as a dropped connection, a proxy's 502 or a
+  stream with no result, the error also says it may have run. Notifications and responses have no one to answer, so a failure of theirs is logged.
 - **Only a 404 rebuilds the session**, once however many requests hit it at the same time, and a 400
   never does. The request that got the 404 never ran, so it alone is sent again, once. A response is
   never sent again.
@@ -400,8 +407,11 @@ node scripts/e2e-host.mjs --url http://localhost:<stack port>/mcp
 
 Releases are cut by tagging. `npm version <patch|minor|major>`, mirror the new version into
 `server.json` (`.version`, the npm package entry, and the image tag), run
-`npm run check:manifests`, then push the tag. CI publishes to npm, GHCR and the MCP registry, in that
-order, then creates the GitHub release, which is what Glama builds a new version from. The first
+`npm run check:manifests`, then push the tag and approve the `npm-release` and `mcp-registry`
+deployments it asks for. CI publishes to npm through trusted publishing, GHCR and the MCP registry,
+in that order, then creates the GitHub release, which is what Glama builds a new version from. If a job
+fails after npm has published, use "Re-run failed jobs": "Re-run all jobs" stops at `npm publish`,
+since a version cannot be published twice. The first
 release has owner steps of its own, in [RELEASING.md](RELEASING.md).
 
 ## Support

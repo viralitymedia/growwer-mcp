@@ -66,4 +66,27 @@ describe('runDoctor', () => {
       await upstream.close();
     }
   });
+
+  it('prints the endpoint without its query or fragment, which may carry a credential', async () => {
+    const upstream = await startFakeUpstream();
+
+    try {
+      const url = new URL(upstream.url);
+
+      url.search = '?access_token=XYZSECRETQUERY';
+      url.hash = '#SECRETFRAGMENT';
+
+      const config = parseArgs(['--url', url.href], { GROWWER_API_KEY: 'gw_sk_test' });
+      const sink = collect();
+
+      assert.equal(await runDoctor(config, sink.write), 0);
+
+      const output = sink.output();
+
+      assert.match(output, new RegExp(`Endpoint {10}${upstream.url.origin}${upstream.url.pathname}\n`));
+      assert.doesNotMatch(output, /XYZSECRETQUERY|SECRETFRAGMENT/);
+    } finally {
+      await upstream.close();
+    }
+  });
 });

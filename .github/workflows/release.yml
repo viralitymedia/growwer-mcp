@@ -72,28 +72,47 @@ jobs:
     needs: [version, catalog]
     runs-on: ubuntu-latest
     # Gated deliberately: a tag can point at any commit, including one that edits
-    # this workflow, so tag-push rights would otherwise equal npm-token rights.
+    # this workflow, so tag-push rights would otherwise equal publish rights. npm
+    # trusts this workflow in this environment only (trusted publishing), and the
+    # environment's reviewers and tag rule are what stand between a tag and npm.
     environment: npm-release
     permissions:
       contents: read
-      id-token: write # npm provenance
+      # Trusted publishing: npm exchanges this job's OIDC token for a one-off
+      # publish credential, and signs provenance with it. No npm token is stored.
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 'lts/*'
           registry-url: https://registry.npmjs.org
-          cache: npm
+          # No dependency cache in the job that publishes, as npm's trusted-publishing
+          # guide says of release builds; false also stops setup-node turning one on
+          # by itself should package.json ever declare a packageManager.
+          package-manager-cache: false
+      - name: Refuse an npm too old for trusted publishing
+        run: |
+          node -e '
+            const [major, minor, patch] = process.argv[1].split(".").map(Number);
+            if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) {
+              console.error("::error::npm " + process.argv[1] + " cannot publish through OIDC; trusted publishing needs 11.5.1 or later.");
+              process.exit(1);
+            }
+          ' "$(npm --version)"
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # Every version, 1.0.0 included, is published here, with provenance. The
+      # pre-release published by hand to create the package (RELEASING.md, step 4)
+      # is the only one that is not.
       - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   ghcr:
     name: Publish the image to GHCR
-    needs: [version, catalog]
+    # After npm, so no image is pushed for a version npm refused or the owner has
+    # not approved: the image carries the same code under the same version.
+    needs: [version, catalog, npm]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -167,8 +186,12 @@ jobs:
           echo "::error::npm still does not list $PACKAGE@$VERSION after 10 minutes. Re-run this job once it does; the version is already published and cannot be published again."
           exit 1
       - name: Authenticate
-        # Through the environment, not the command line: an argv-borne key is
-        # readable from /proc by anything else running in the job.
+        # The key is on mcp-publisher's command line, readable from /proc by anything
+        # else running in this job while it runs; nothing else does. 1.8.7 takes an
+        # in-process key only as --private-key, with no file or environment form
+        # (cmd/publisher/commands/login.go). Passing it through env only keeps it out
+        # of the command shown in the log. A KMS signer (google-kms, azure-key-vault)
+        # is the way to keep it out of the job altogether.
         env:
           MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
         run: ./mcp-publisher login dns --domain growwer.com --private-key "$MCP_REGISTRY_PRIVATE_KEY"

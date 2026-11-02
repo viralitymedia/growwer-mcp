@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { after, describe, it } from 'node:test';
 import { promisify } from 'node:util';
 
+import { ConfigError, TOKEN_ENV_VAR, parseArgs } from '../src/config.ts';
 import { StdioPair, startFakeUpstream, type Exchange, type FakeUpstream, type Script } from './helpers.ts';
 
 const run = promisify(execFile);
@@ -245,5 +246,180 @@ describe('the key, in doctor', () => {
       assert.match(output, /none of it is shown/);
       assert.ok(!output.includes(token.slice(6, 12)), 'part of the credential was printed');
     });
+  }
+});
+
+describe('a credential with a character no HTTP header can carry', () => {
+  const breaks: [string, string][] = [
+    ['a line feed', '\n'],
+    ['a carriage return', '\r'],
+  ];
+
+  /** The key with a second line, as a two-line paste into a host's env field leaves it. */
+  const brokenKey = (character: string): string => `${SENTINEL}${character}CanaryOnTheSecondLine`;
+
+  /**
+   * Every run of six characters of the value, the control character's neighbours included, so a
+   * printed fragment of either line fails as surely as the whole value.
+   */
+  const assertNoneOf = (value: string, output: string): void => {
+    for (let start = 0; start + 6 <= value.length; start += 1) {
+      const fragment = value.slice(start, start + 6);
+
+      assert.ok(!output.includes(fragment), `the output carries "${JSON.stringify(fragment)}" of the credential`);
+    }
+
+    assert.ok(!output.includes('\r'), 'the output carries a carriage return');
+  };
+
+  /** Runs the CLI to its exit and returns everything it wrote, stdout and stderr together. */
+  const runCli = async (args: readonly string[], env: NodeJS.ProcessEnv): Promise<{ code: number; output: string }> => {
+    const result = await run(process.execPath, [cli, ...args], { env: { ...process.env, ...env } }).then(
+      (done) => ({ ...done, code: 0 }),
+      (error: { stdout: string; stderr: string; code: number }) => error
+    );
+
+    return { code: result.code, output: `${result.stdout}${result.stderr}` };
+  };
+
+  for (const command of ['doctor', 'serve']) {
+    for (const [name, character] of breaks) {
+      it(`refuses ${TOKEN_ENV_VAR} with ${name} in ${command}, naming the variable and none of the key`, async () => {
+        const upstream = await startFakeUpstream();
+
+        after(async () => {
+          await upstream.close();
+        });
+
+        const key = brokenKey(character);
+        const { code, output } = await runCli([command, '--url', upstream.url.href], { GROWWER_API_KEY: key });
+
+        assert.equal(code, 2);
+        assert.match(output, /GROWWER_API_KEY contains a character that cannot go in an HTTP header/);
+        assertNoneOf(key, output);
+        assert.equal(upstream.requests.length, 0, 'the credential must not be sent');
+      });
+
+      it(`refuses an Authorization --header with ${name} in ${command}, naming the flag and none of the key`, async () => {
+        const upstream = await startFakeUpstream();
+
+        after(async () => {
+          await upstream.close();
+        });
+
+        const value = `Bearer ${brokenKey(character)}`;
+        const { code, output } = await runCli([command, '--url', upstream.url.href, '--header', `Authorization: ${value}`], {
+          GROWWER_API_KEY: '',
+        });
+
+        assert.equal(code, 2);
+        assert.match(output, /The value of --header "Authorization" contains a character that cannot go in an HTTP header/);
+        assertNoneOf(value, output);
+        assert.equal(upstream.requests.length, 0, 'the credential must not be sent');
+      });
+
+      it(`refuses another --header value with ${name} in ${command}, naming the header and none of the value`, async () => {
+        const upstream = await startFakeUpstream();
+
+        after(async () => {
+          await upstream.close();
+        });
+
+        const value = `sk-other-service-secret${character}CanaryOnTheSecondLine`;
+        const { code, output } = await runCli([command, '--url', upstream.url.href, '--header', `X-Api-Key: ${value}`], {
+          GROWWER_API_KEY: SENTINEL,
+        });
+
+        assert.equal(code, 2);
+        assert.match(output, /The value of --header "X-Api-Key" contains a character that cannot go in an HTTP header/);
+        assertNoneOf(value, output);
+        assertNoSecret(output);
+        assert.equal(upstream.requests.length, 0, 'the credential must not be sent');
+      });
+    }
+  }
+
+  // No process can receive a NUL in argv or in its environment (spawn refuses one with
+  // ERR_INVALID_ARG_VALUE), so the CLI cannot be run with one. The refusal is parseArgs', and the CLI
+  // prints its message and nothing else, so the message is the whole output.
+  describe('a NUL, which only parseArgs can be handed', () => {
+    const key = brokenKey('\0');
+
+    const refusals: [string, () => unknown, RegExp][] = [
+      ['in GROWWER_API_KEY', () => parseArgs(['doctor'], { GROWWER_API_KEY: key }), /^GROWWER_API_KEY contains/],
+      [
+        'in an Authorization --header',
+        () => parseArgs(['--header', `Authorization: Bearer ${key}`], {}),
+        /^The value of --header "Authorization" contains/,
+      ],
+      ['in another --header', () => parseArgs(['--header', `X-Api-Key: ${key}`], {}), /^The value of --header "X-Api-Key" contains/],
+    ];
+
+    for (const [name, parse, pattern] of refusals) {
+      it(`is refused ${name}, with none of the value in the message`, () => {
+        assert.throws(parse, (error: Error) => {
+          assert.ok(error instanceof ConfigError);
+          assert.match(error.message, pattern);
+          assertNoneOf(key, error.message);
+          assert.ok(!error.message.includes('\0'), 'the message carries the NUL');
+
+          return true;
+        });
+      });
+    }
+  });
+});
+
+describe('a credential in an argument the CLI does not know', () => {
+  /** Runs the CLI to its exit, with no key in its environment, and returns stdout and stderr together. */
+  const runToExit = async (args: readonly string[]): Promise<{ code: number; output: string }> => {
+    const result = await run(process.execPath, [cli, ...args], { env: { ...process.env, GROWWER_API_KEY: '' } }).then(
+      (done) => ({ ...done, code: 0 }),
+      (error: { stdout: string; stderr: string; code: number }) => error
+    );
+
+    return { code: result.code, output: `${result.stdout}${result.stderr}` };
+  };
+
+  /** Every run of six characters of the key, so a printed fragment fails as surely as the whole key. */
+  const assertNoFragment = (output: string): void => {
+    for (let start = 0; start + 6 <= SENTINEL.length; start += 1) {
+      const fragment = SENTINEL.slice(start, start + 6);
+
+      assert.ok(!output.includes(fragment), `the output carries "${fragment}" of the key`);
+    }
+  };
+
+  const cases: [string, (command: string, url: URL) => string[], RegExp][] = [
+    [
+      'an Authorization --header written with "="',
+      (command, url) => [command, '--url', url.href, `--header=Authorization: Bearer ${SENTINEL}`],
+      /--header takes its value as the next argument/,
+    ],
+    [
+      'a --url written with "=", carrying the key in its query',
+      (command, url) => [command, `--url=${url.href}?access_token=${SENTINEL}`],
+      /--url takes its value as the next argument/,
+    ],
+    ['the bare key as an argument', (command, url) => [command, '--url', url.href, SENTINEL], /Argument 4 /],
+  ];
+
+  for (const command of ['doctor', 'serve']) {
+    for (const [name, args, named] of cases) {
+      it(`prints none of it for ${name} in ${command}`, async () => {
+        const upstream = await startFakeUpstream();
+
+        after(async () => {
+          await upstream.close();
+        });
+
+        const { code, output } = await runToExit(args(command, upstream.url));
+
+        assert.equal(code, 2);
+        assert.match(output, named);
+        assertNoFragment(output);
+        assert.equal(upstream.requests.length, 0, 'the CLI must stop before sending anything');
+      });
+    }
   }
 });

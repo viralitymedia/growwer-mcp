@@ -322,3 +322,50 @@ describe('the public guide without a credential', () => {
     assert.match(result.content[0]?.text ?? '', /could not be reached/);
   });
 });
+
+describe('the endpoint the keyless server prints', () => {
+  const withQuery = (base: URL): URL => {
+    const url = new URL(base);
+
+    url.search = '?access_token=XYZSECRETQUERY';
+    url.hash = '#SECRETFRAGMENT';
+
+    return url;
+  };
+
+  it('carries no query or fragment in the setup text a model reads', async () => {
+    const { stdio } = await handshake(withQuery(ENDPOINT));
+
+    const called = await request(stdio, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: SETUP_TOOL_NAME, arguments: {} },
+    });
+
+    const text = (called.result as { content: { text: string }[] }).content[0]?.text ?? '';
+
+    assert.match(text, /Upstream endpoint: https:\/\/tool\.growwer\.com\/mcp\n/);
+    assert.doesNotMatch(text, /XYZSECRETQUERY|SECRETFRAGMENT/);
+  });
+
+  it('carries no query or fragment when the public guide cannot be reached', async () => {
+    const upstream = await startFakeUpstream();
+    const { url } = upstream;
+
+    await upstream.close();
+
+    const { stdio } = await handshake(withQuery(url));
+    const called = await request(stdio, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'growwer_get_guide', arguments: {} },
+    });
+
+    const text = (called.result as { content: { text: string }[] }).content[0]?.text ?? '';
+
+    assert.match(text, /could not be reached at http:\/\/127\.0\.0\.1:\d+\/public\/v1\/mcp: TypeError \(ECONNREFUSED\)/);
+    assert.doesNotMatch(text, /XYZSECRETQUERY|SECRETFRAGMENT/);
+  });
+});

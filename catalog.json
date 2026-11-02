@@ -3980,7 +3980,7 @@
         {
             "name": "growwer_deliver_seller_order",
             "title": "Deliver an order",
-            "description": "Use this when a seller has published an accepted order: delivers a post order with the URL of the post and publicationDateConfirmed, and a link addition with neither, for the buyer to review.",
+            "description": "Use this when a seller has published an accepted order: delivers a post order with the URL of the post and publicationDateConfirmed, and a link addition with neither, for the buyer to review. The user is asked to confirm first.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -4421,7 +4421,7 @@
         {
             "name": "growwer_deliver_seller_order_draft",
             "title": "Deliver a draft",
-            "description": "Use this when a seller who writes the draft of a post order has it ready: delivers it from a file uploaded with growwer_upload_file.",
+            "description": "Use this when a seller who writes the draft of a post order has it ready: delivers it from a file uploaded with growwer_upload_file. The user is asked to confirm first.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -4859,7 +4859,7 @@
         {
             "name": "growwer_deliver_seller_order_draft_update",
             "title": "Deliver a draft update",
-            "description": "Use this when a seller has changed the draft of a post order as the buyer asked: delivers the new draft from a file uploaded with growwer_upload_file.",
+            "description": "Use this when a seller has changed the draft of a post order as the buyer asked: delivers the new draft from a file uploaded with growwer_upload_file. The user is asked to confirm first.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -5297,7 +5297,7 @@
         {
             "name": "growwer_deliver_seller_order_update",
             "title": "Deliver an update",
-            "description": "Use this when a seller has changed a delivered order as the buyer asked: delivers a post order with the URL of the post and publicationDateConfirmed, and a link addition with neither, for the buyer to review again.",
+            "description": "Use this when a seller has changed a delivered order as the buyer asked: delivers a post order with the URL of the post and publicationDateConfirmed, and a link addition with neither, for the buyer to review again. The user is asked to confirm first.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -12889,7 +12889,7 @@
         {
             "name": "growwer_refute_seller_order_draft_update",
             "title": "Refuse a draft update",
-            "description": "Use this when a seller will not change a draft as the buyer asked: refuses the update with a reason the buyer is told.",
+            "description": "Use this when a seller will not change a draft as the buyer asked: refuses the update with a reason the buyer is told. The user is asked to confirm first.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -13329,7 +13329,7 @@
         {
             "name": "growwer_refute_seller_order_update",
             "title": "Refuse an update",
-            "description": "Use this when a seller will not change a delivered order as the buyer asked: refuses the update with a reason the buyer is told.",
+            "description": "Use this when a seller will not change a delivered order as the buyer asked: refuses the update with a reason the buyer is told. The user is asked to confirm first.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -14486,7 +14486,7 @@
         {
             "name": "growwer_request_order_draft_update",
             "title": "Request changes to a draft",
-            "description": "Use this when the user wants the seller to change the draft of a post order that waits for their review: sends the seller the reason.",
+            "description": "Use this when the user wants the seller to change the draft of a post order that waits for their review: sends the seller the reason. The user is asked to confirm first.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -14905,7 +14905,7 @@
         {
             "name": "growwer_request_order_update",
             "title": "Request changes to a delivery",
-            "description": "Use this when the user wants the seller to change the delivery of an order that waits for their review: sends the seller the reason.",
+            "description": "Use this when the user wants the seller to change the delivery of an order that waits for their review: sends the seller the reason. The user is asked to confirm first.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
