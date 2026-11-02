@@ -38,8 +38,8 @@ everything before it is done and the hosted catalogue is current.
    openssl genpkey -algorithm Ed25519 -out key.pem
    openssl pkey -in key.pem -pubout -outform DER | tail -c 32 | base64
    openssl pkey -in key.pem -noout -text | grep -A3 'priv:' | tail -n +2 | tr -d ' :\n' |
-     gh secret set MCP_REGISTRY_PRIVATE_KEY --env mcp-registry --repo viralitymedia/growwer-mcp
-   rm key.pem
+     gh secret set MCP_REGISTRY_PRIVATE_KEY --env mcp-registry --repo viralitymedia/growwer-mcp &&
+     rm key.pem
    ```
 
    The third command stores the private key as the secret `MCP_REGISTRY_PRIVATE_KEY` in the
@@ -70,17 +70,27 @@ everything before it is done and the hosted catalogue is current.
       differs from the committed one: run `npm run sync:catalog`, merge that change in a pull
       request, and run the workflow again. Go on only once it is green, since a red catalogue stops
       the release and the window keeps running.
-   2. Publish the pre-release `0.0.0-bootstrap.0` with a short-lived token. On npmjs.com, create a
-      granular access token with read and write on the `@growwer` scope and the shortest expiry
-      offered. Then, in a throwaway clone:
+   2. Publish the pre-release `0.0.0-bootstrap.0` with a short-lived token. It is a stub, a
+      `package.json` and nothing else, so no code ships without provenance and nothing is built
+      while the token is in the environment. On npmjs.com, create a granular access token with read
+      and write on the `@growwer` scope and the shortest expiry offered. Then, in an empty
+      directory:
 
       ```bash
-      git clone --depth 1 https://github.com/viralitymedia/growwer-mcp.git /tmp/growwer-mcp-bootstrap
-      cd /tmp/growwer-mcp-bootstrap && npm ci
-      npm version 0.0.0-bootstrap.0 --no-git-tag-version
+      mkdir /tmp/growwer-mcp-bootstrap && cd /tmp/growwer-mcp-bootstrap
+      cat > package.json <<'JSON'
+      {
+        "name": "@growwer/mcp",
+        "version": "0.0.0-bootstrap.0",
+        "description": "Placeholder that created the package for trusted publishing. Install @growwer/mcp@latest.",
+        "license": "MIT",
+        "repository": { "type": "git", "url": "git+https://github.com/viralitymedia/growwer-mcp.git" },
+        "publishConfig": { "access": "public" }
+      }
+      JSON
       read -rs NPM_TOKEN && export NPM_TOKEN   # paste the token: not echoed, not kept in history
       printf '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' > /tmp/npmrc-growwer-release
-      npm publish --tag bootstrap --provenance=false --userconfig /tmp/npmrc-growwer-release
+      npm publish --tag bootstrap --userconfig /tmp/npmrc-growwer-release
       npm deprecate @growwer/mcp@0.0.0-bootstrap.0 'Created the package for trusted publishing. Install @growwer/mcp@latest.' \
         --userconfig /tmp/npmrc-growwer-release
       rm /tmp/npmrc-growwer-release && unset NPM_TOKEN
@@ -88,12 +98,15 @@ everything before it is done and the hosted catalogue is current.
       ```
 
       The npmrc holds the variable's name, not the token. npm refuses to publish a pre-release
-      without `--tag`, and `--provenance=false` is needed because provenance can only be signed in
-      CI. The pre-release is deprecated at once, with the same token, so an install of it warns;
-      once `1.0.0` is published without a tag it becomes `latest`. It is not unpublished: npm never
-      lets a version number be used again, and unpublishing a package's only version removes the
-      package, after which nothing can be published to it for 24 hours
-      ([npm unpublish policy](https://docs.npmjs.com/policies/unpublish)).
+      without `--tag`. The stub has no `bin`, so until `1.0.0` lands an `npx @growwer/mcp` that
+      resolves to it fails instead of running an unattested build; publish `1.0.0` the same day.
+      The pre-release is deprecated at once, with the same token, so an install of it warns; once
+      `1.0.0` is published without a tag it becomes `latest`. It cannot be unpublished before
+      `1.0.0` exists: npm never lets a version number be used again, and unpublishing a package's
+      only version removes the package, after which nothing can be published to it for 24 hours
+      ([npm unpublish policy](https://docs.npmjs.com/policies/unpublish)). Once `1.0.0` is out,
+      the stub may be unpublished within 72 hours of its own publish, or left deprecated, which is
+      harmless for a package with no code.
    3. Configure the trusted publisher, then remove every token. In the package's settings on
       npmjs.com, add a trusted publisher for GitHub Actions: organisation `viralitymedia`,
       repository `growwer-mcp`, workflow `release.yml`, environment `npm-release`. Set publishing
@@ -115,7 +128,9 @@ everything before it is done and the hosted catalogue is current.
    If the two days pass before `1.0.0` is on npm, the configuration has expired and cannot be
    edited: delete it in the package's settings, add it again as in step 4.3, and publish within two
    days of that. No new pre-release is needed, since the package exists. A tag already pushed can
-   be run again from the Actions tab.
+   be run again from the Actions tab with "Re-run failed jobs". After a run that published to npm,
+   "Re-run all jobs" fails at `npm publish`, since a version cannot be published twice, and skips
+   every job after it.
 
    Then check the package from npm:
 

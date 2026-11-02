@@ -409,7 +409,9 @@ Releases are cut by tagging. `npm version <patch|minor|major>`, mirror the new v
 `server.json` (`.version`, the npm package entry, and the image tag), run
 `npm run check:manifests`, then push the tag and approve the `npm-release` and `mcp-registry`
 deployments it asks for. CI publishes to npm through trusted publishing, GHCR and the MCP registry,
-in that order, then creates the GitHub release, which is what Glama builds a new version from. The first
+in that order, then creates the GitHub release, which is what Glama builds a new version from. If a job
+fails after npm has published, use "Re-run failed jobs": "Re-run all jobs" stops at `npm publish`,
+since a version cannot be published twice. The first
 release has owner steps of its own, in [RELEASING.md](RELEASING.md).
 
 ## Support
