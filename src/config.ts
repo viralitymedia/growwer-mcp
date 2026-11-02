@@ -49,6 +49,13 @@ const UNPRINTABLE =
   'contains a character that cannot go in an HTTP header, such as a line break, a tab or a NUL, so it was not used ' +
   'and is not shown. Copy it again as a single line.';
 
+/**
+ * A header name is an RFC 9110 token. Anything else, such as the spaces of "X Api Key", makes undici
+ * refuse the header with a message quoting it, and a name is sometimes a pasted value, so it is
+ * refused here first, without the name.
+ */
+const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
 /** How a printed endpoint reads: no user name, password, query or fragment, which may carry a credential. */
 export const displayUrl = (url: URL): string => `${url.origin}${url.pathname}`;
 
@@ -74,6 +81,13 @@ const parseHeader = (raw: string): readonly [string, string] => {
 
   if (!PRINTABLE_ASCII.test(name)) {
     throw new ConfigError(`A --header name ${UNPRINTABLE}`);
+  }
+
+  if (!HEADER_NAME.test(name)) {
+    throw new ConfigError(
+      "A --header name must be an HTTP token: letters, digits and !#$%&'*+-.^_`|~, with no spaces or other " +
+        'punctuation, such as X-Api-Key. It was not used and is not shown.'
+    );
   }
 
   if (!PRINTABLE_ASCII.test(value)) {
@@ -104,8 +118,9 @@ const parseUrl = (raw: string, source: string): URL => {
     throw new ConfigError(`${source} must not carry a user name or password; set the key in ${TOKEN_ENV_VAR} instead.`);
   }
 
+  // The scheme is not echoed either: "alice:hunter2" parses as a URL whose scheme is the user name.
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    throw new ConfigError(`${source} must be an http(s) URL, got the "${url.protocol}" scheme.`);
+    throw new ConfigError(`${source} must be an http(s) URL.`);
   }
 
   // A bearer token over plaintext is readable by anything on the path. Loopback
@@ -117,6 +132,39 @@ const parseUrl = (raw: string, source: string): URL => {
   }
 
   return url;
+};
+
+/** Letters and dashes after one or two dashes: an option's name, which cannot be a credential. */
+const OPTION_NAME = /^--?[A-Za-z][A-Za-z-]*$/;
+
+const OPTIONS_WITH_A_VALUE: ReadonlySet<string> = new Set(['--url', '--header']);
+
+/**
+ * An argument this CLI does not know is never echoed whole. The likeliest ones are `--header=…` and
+ * `--url=…`, whose values carry a credential, and the key itself pasted as an argument. Only an
+ * option's name is shown, up to its "=", and anything else is named by its position.
+ */
+const unknownArgument = (argument: string, position: number): ConfigError => {
+  const help = 'Run "growwer-mcp --help".';
+
+  if (OPTION_NAME.test(argument)) {
+    return new ConfigError(`Unknown option "${argument}". ${help}`);
+  }
+
+  const option = argument.slice(0, Math.max(argument.indexOf('='), 0));
+
+  if (OPTION_NAME.test(option)) {
+    return new ConfigError(
+      OPTIONS_WITH_A_VALUE.has(option)
+        ? `${option} takes its value as the next argument, not after "=", as in ${option} <value>. ` +
+            'The value given was not used and is not shown.'
+        : `Unknown option "${option}", and the value after its "=" is not shown. ${help}`
+    );
+  }
+
+  return new ConfigError(
+    `Argument ${position} is not one growwer-mcp knows, and is not shown, since it may be a credential. ${help}`
+  );
 };
 
 /**
@@ -179,7 +227,7 @@ export const parseArgs = (argv: readonly string[], env: NodeJS.ProcessEnv): Conf
         break;
       }
       default:
-        throw new ConfigError(`Unknown argument "${argument}". Run "growwer-mcp --help".`);
+        throw unknownArgument(argument, index + 1);
     }
   }
 

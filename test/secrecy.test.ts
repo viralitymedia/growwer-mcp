@@ -369,3 +369,57 @@ describe('a credential with a character no HTTP header can carry', () => {
     }
   });
 });
+
+describe('a credential in an argument the CLI does not know', () => {
+  /** Runs the CLI to its exit, with no key in its environment, and returns stdout and stderr together. */
+  const runToExit = async (args: readonly string[]): Promise<{ code: number; output: string }> => {
+    const result = await run(process.execPath, [cli, ...args], { env: { ...process.env, GROWWER_API_KEY: '' } }).then(
+      (done) => ({ ...done, code: 0 }),
+      (error: { stdout: string; stderr: string; code: number }) => error
+    );
+
+    return { code: result.code, output: `${result.stdout}${result.stderr}` };
+  };
+
+  /** Every run of six characters of the key, so a printed fragment fails as surely as the whole key. */
+  const assertNoFragment = (output: string): void => {
+    for (let start = 0; start + 6 <= SENTINEL.length; start += 1) {
+      const fragment = SENTINEL.slice(start, start + 6);
+
+      assert.ok(!output.includes(fragment), `the output carries "${fragment}" of the key`);
+    }
+  };
+
+  const cases: [string, (command: string, url: URL) => string[], RegExp][] = [
+    [
+      'an Authorization --header written with "="',
+      (command, url) => [command, '--url', url.href, `--header=Authorization: Bearer ${SENTINEL}`],
+      /--header takes its value as the next argument/,
+    ],
+    [
+      'a --url written with "=", carrying the key in its query',
+      (command, url) => [command, `--url=${url.href}?access_token=${SENTINEL}`],
+      /--url takes its value as the next argument/,
+    ],
+    ['the bare key as an argument', (command, url) => [command, '--url', url.href, SENTINEL], /Argument 4 /],
+  ];
+
+  for (const command of ['doctor', 'serve']) {
+    for (const [name, args, named] of cases) {
+      it(`prints none of it for ${name} in ${command}`, async () => {
+        const upstream = await startFakeUpstream();
+
+        after(async () => {
+          await upstream.close();
+        });
+
+        const { code, output } = await runToExit(args(command, upstream.url));
+
+        assert.equal(code, 2);
+        assert.match(output, named);
+        assertNoFragment(output);
+        assert.equal(upstream.requests.length, 0, 'the CLI must stop before sending anything');
+      });
+    }
+  }
+});

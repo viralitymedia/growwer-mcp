@@ -193,3 +193,93 @@ describe('parseArgs', () => {
     assert.throws(() => parseArgs(['--nope'], {}), ConfigError);
   });
 });
+
+describe('an argument parseArgs does not know', () => {
+  const secret = 'gw_sk_PUBLICPREFIX_UnknownArgumentSecret';
+
+  /** Asserts the refusal and returns its message, which must carry no part of the secret's tail. */
+  const refusal = (argv: readonly string[]): string => {
+    let message = '';
+
+    assert.throws(
+      () => parseArgs(argv, {}),
+      (error: Error) => {
+        assert.ok(error instanceof ConfigError);
+        message = error.message;
+
+        return true;
+      }
+    );
+    assert.doesNotMatch(message, /UnknownArgumentSecret|PUBLICPREFIX|Bearer|access_token/);
+
+    return message;
+  };
+
+  it('is named when it is shaped like a flag and nothing more', () => {
+    assert.match(refusal(['--nope']), /^Unknown option "--nope"\. Run "growwer-mcp --help"\.$/);
+    assert.match(refusal(['-x']), /^Unknown option "-x"\./);
+  });
+
+  it('is named only up to its "=" when it is a flag with a value, which is not shown', () => {
+    assert.match(
+      refusal([`--header=Authorization: Bearer ${secret}`]),
+      /^--header takes its value as the next argument, not after "="/
+    );
+    assert.match(refusal([`--url=https://mcp.example.test/mcp?access_token=${secret}`]), /^--url takes its value as the next argument/);
+    assert.match(refusal([`--token=${secret}`]), /^Unknown option "--token", and the value after its "=" is not shown\./);
+  });
+
+  it('is named only by its position otherwise, since it may be a credential', () => {
+    assert.match(refusal([secret]), /^Argument 1 is not one growwer-mcp knows/);
+    assert.match(refusal(['doctor', secret]), /^Argument 2 is not one growwer-mcp knows/);
+    assert.match(refusal(['--url', 'https://mcp.example.test/mcp', `Bearer ${secret}`]), /^Argument 3 /);
+    // Flag-shaped up to "=" means letters and dashes only: anything else before it is not shown.
+    assert.match(refusal([`--${secret}=x`]), /^Argument 1 /);
+    assert.match(refusal([`-${secret}`]), /^Argument 1 /);
+  });
+});
+
+describe('a --header name', () => {
+  it('is refused when it is not an HTTP token, without echoing it', () => {
+    for (const name of ['X Api Key', 'X-Api-Key(1)', 'X"Quoted', 'X/Slash', 'X@At', 'X[1]', 'X{1}', 'X;Semi', 'X,Comma', 'X=Eq']) {
+      assert.throws(
+        () => parseArgs(['--header', `${name}: v`], {}),
+        (error: Error) => {
+          assert.ok(error instanceof ConfigError);
+          assert.match(error.message, /^A --header name must be an HTTP token/);
+          assert.ok(!error.message.includes(name), `the message echoes "${name}"`);
+
+          return true;
+        },
+        name
+      );
+    }
+  });
+
+  it('is accepted when it is one, punctuation RFC 9110 allows included', () => {
+    const name = "X-Trace_1.a~b!#$%&'*+^`|";
+    const config = parseArgs(['--header', `${name}: v`], {});
+
+    assert.equal(config.headers[name], 'v');
+  });
+});
+
+describe('a URL that is not http(s)', () => {
+  it('is refused without echoing its scheme, which may be a user name', () => {
+    for (const [args, env, source] of [
+      [['--url', 'alice:hunter2pass'], {}, /^--url must be an http\(s\) URL\.$/],
+      [[], { GROWWER_MCP_URL: 'ftp://mcp.example.test/mcp' }, /^GROWWER_MCP_URL environment variable must be an http\(s\) URL\.$/],
+    ] as const) {
+      assert.throws(
+        () => parseArgs(args, env),
+        (error: Error) => {
+          assert.ok(error instanceof ConfigError);
+          assert.match(error.message, source);
+          assert.doesNotMatch(error.message, /alice|hunter2|ftp/);
+
+          return true;
+        }
+      );
+    }
+  });
+});
