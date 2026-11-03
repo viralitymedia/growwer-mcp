@@ -1489,6 +1489,7 @@ describe('isConnectFailure, which decides whether a failed request never left', 
       [['ECONNREFUSED', 'connect'], ['ECONNRESET', 'read']],
       [['ENETUNREACH', 'connect'], ['ECONNRESET', 'read']],
       [['ENETUNREACH', 'connect'], ['ETIMEDOUT']],
+      [],
     ] satisfies Attempt[][]) {
       assert.equal(isConnectFailure(allAddressesFailed(...attempts)), false, attempts.map((attempt) => attempt.join('/')).join(', '));
     }
