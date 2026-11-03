@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
-import { after, describe, it } from 'node:test';
+import { after, describe, it, type TestContext } from 'node:test';
 
 import { isConnectFailure, startBridge, type BridgeOptions } from '../src/bridge.ts';
 import {
@@ -61,6 +61,20 @@ const methods = (upstream: FakeUpstream): string[] => upstream.requests.map((req
 
 const count = (upstream: FakeUpstream, method: string): number =>
   upstream.requests.filter((request) => request.method === method).length;
+
+/** One connect attempt that failed, as Node reports it: the code, and the syscall that failed. */
+type Attempt = readonly [code: string, syscall?: string];
+
+const socketError = ([code, syscall]: Attempt): Error =>
+  Object.assign(new Error(code), { code }, syscall === undefined ? {} : { syscall });
+
+/**
+ * What undici throws when a dual-stack connect fails on every address: "fetch failed", caused by the
+ * AggregateError of Node's happy eyeballs, which has an empty message, takes its code from the first
+ * attempt and has no syscall of its own.
+ */
+const allAddressesFailed = (...attempts: Attempt[]): TypeError =>
+  new TypeError('fetch failed', { cause: Object.assign(new AggregateError(attempts.map(socketError), ''), { code: attempts[0]?.[0] }) });
 
 interface Harness {
   stdio: StdioPair;
@@ -1369,6 +1383,56 @@ describe('a failed request, on whether it may have run', () => {
     assertErrorOn(failed, 2, /HTTP 503/);
     assert.doesNotMatch(failed.error?.message ?? '', mayHaveRun);
   });
+
+  /** Makes the `tools/call` POSTs fail with `failure` before they reach the upstream; the rest pass. */
+  const failCallsWith = (t: TestContext, failure: Error): void => {
+    const passThrough = globalThis.fetch;
+
+    t.mock.method(globalThis, 'fetch', (input: Parameters<typeof fetch>[0], init?: RequestInit): Promise<Response> =>
+      typeof init?.body === 'string' && init.body.includes('"tools/call"') ? Promise.reject(failure) : passThrough(input, init)
+    );
+  };
+
+  it('does not say so when every address failed to connect, one of them with no route', async (t) => {
+    const { stdio, upstream } = await connected();
+
+    failCallsWith(t, allAddressesFailed(['ENETUNREACH', 'connect'], ['ECONNREFUSED', 'connect']));
+    stdio.send(toolCall(2));
+
+    const unsent = await stdio.next();
+
+    assertErrorOn(unsent, 2, /ENETUNREACH/);
+    assert.doesNotMatch(unsent.error?.message ?? '', mayHaveRun);
+    assert.equal(count(upstream, 'tools/call'), 0);
+  });
+
+  it('does not say so when every address failed to connect, one of them by timing out', async (t) => {
+    const { stdio } = await connected();
+
+    failCallsWith(t, allAddressesFailed(['ETIMEDOUT', 'connect'], ['ECONNREFUSED', 'connect']));
+    stdio.send(toolCall(2));
+
+    const unsent = await stdio.next();
+
+    assertErrorOn(unsent, 2, /ETIMEDOUT/);
+    assert.doesNotMatch(unsent.error?.message ?? '', mayHaveRun);
+  });
+
+  it('says so when one failure of a dual-stack set came from a connection that was made', async (t) => {
+    const { stdio } = await connected();
+
+    failCallsWith(t, allAddressesFailed(['ECONNREFUSED', 'connect'], ['ECONNRESET', 'read']));
+    stdio.send(toolCall(2));
+    assertErrorOn(await stdio.next(), 2, mayHaveRun);
+  });
+
+  it('says so when the connection is reset after the request was sent', async (t) => {
+    const { stdio } = await connected();
+
+    failCallsWith(t, new TypeError('fetch failed', { cause: socketError(['ECONNRESET', 'read']) }));
+    stdio.send(toolCall(2));
+    assertErrorOn(await stdio.next(), 2, /\(ECONNRESET\)\. It may have run/);
+  });
 });
 
 describe('isConnectFailure, which decides whether a failed request never left', () => {
@@ -1407,5 +1471,32 @@ describe('isConnectFailure, which decides whether a failed request never left', 
     ]) {
       assert.equal(isConnectFailure(error), false, String((error.cause as { code?: string } | undefined)?.code ?? error.message));
     }
+  });
+
+  it('counts a dual-stack failure as a connect failure when every address failed to connect', () => {
+    for (const attempts of [
+      [['ECONNREFUSED', 'connect'], ['ECONNREFUSED', 'connect']],
+      [['ENETUNREACH', 'connect'], ['ECONNREFUSED', 'connect']],
+      [['ETIMEDOUT', 'connect'], ['ECONNREFUSED', 'connect']],
+      [['EHOSTUNREACH', 'connect'], ['ETIMEDOUT', 'connect']],
+    ] satisfies Attempt[][]) {
+      assert.equal(isConnectFailure(allAddressesFailed(...attempts)), true, attempts.map((attempt) => attempt.join('/')).join(', '));
+    }
+  });
+
+  it('does not count a dual-stack failure when any of its errors is not from connecting', () => {
+    for (const attempts of [
+      [['ECONNREFUSED', 'connect'], ['ECONNRESET', 'read']],
+      [['ENETUNREACH', 'connect'], ['ECONNRESET', 'read']],
+      [['ENETUNREACH', 'connect'], ['ETIMEDOUT']],
+    ] satisfies Attempt[][]) {
+      assert.equal(isConnectFailure(allAddressesFailed(...attempts)), false, attempts.map((attempt) => attempt.join('/')).join(', '));
+    }
+  });
+
+  it('counts a connect that timed out, but not a timeout of a connection that was made', () => {
+    assert.equal(isConnectFailure(fetchFailed('ETIMEDOUT', 'connect')), true, 'ETIMEDOUT on connect');
+    assert.equal(isConnectFailure(fetchFailed('ETIMEDOUT', 'read')), false, 'ETIMEDOUT on read');
+    assert.equal(isConnectFailure(fetchFailed('ETIMEDOUT')), false, 'ETIMEDOUT with no syscall');
   });
 });

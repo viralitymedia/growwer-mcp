@@ -75,23 +75,39 @@ const isCredentialRejected = (error: unknown): boolean =>
  */
 const CONNECT_FAILURES: ReadonlySet<string> = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT']);
 
+/** The fields of a socket error that tell when it failed. */
+interface SocketFailure {
+  readonly code?: unknown;
+  readonly syscall?: unknown;
+  readonly errors?: unknown;
+}
+
 /**
- * No route to the host or to its network. An established socket reports these too, on a read or a
- * write, when the route goes mid-response, so they show that nothing left only when the call that
- * failed was the connect itself.
+ * Whether one socket error came from connecting. A connect syscall that failed made no connection,
+ * so nothing was written, whatever its code: no route (EHOSTUNREACH, ENETUNREACH), a timed-out
+ * attempt (ETIMEDOUT) or a refusal. An established socket reports those same codes on a read or a
+ * write, when the route goes or the peer stops answering mid-response, so beyond CONNECT_FAILURES
+ * a code shows that nothing left only when the call that failed was the connect itself.
  */
-const UNREACHABLE: ReadonlySet<string> = new Set(['EHOSTUNREACH', 'ENETUNREACH']);
+const failedToConnect = (failure: SocketFailure | undefined): boolean => {
+  const code = failure?.code;
+
+  return typeof code === 'string' && (CONNECT_FAILURES.has(code) || failure?.syscall === 'connect');
+};
 
 /** Whether a failed request certainly never reached the upstream. Exported for its tests. */
 export const isConnectFailure = (error: unknown): boolean => {
-  const cause = (error instanceof Error ? error.cause : undefined) as { code?: unknown; syscall?: unknown } | undefined;
-  const code = cause?.code;
+  const cause = (error instanceof Error ? error.cause : undefined) as SocketFailure | undefined;
+  const attempts = cause?.errors;
 
-  if (typeof code !== 'string') {
-    return false;
+  // A dual-stack host gets one connect attempt per address, and when every one fails Node throws an
+  // AggregateError of them, which copies the first attempt's code and has no syscall of its own. Its
+  // attempts decide: nothing left only if none of them made a connection.
+  if (Array.isArray(attempts) && attempts.length > 0) {
+    return attempts.every((attempt: SocketFailure | undefined) => failedToConnect(attempt));
   }
 
-  return CONNECT_FAILURES.has(code) || (UNREACHABLE.has(code) && cause?.syscall === 'connect');
+  return failedToConnect(cause);
 };
 
 /**
