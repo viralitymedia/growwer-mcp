@@ -23,11 +23,14 @@ Show where the user's orders stand and what waits for them. Give a view on each 
 
 ## Act on the user's word
 
-Each of these writes takes a new UUID as `requestId`.
+Each of these writes takes a new UUID as `requestId`. Accepting a draft runs at once. Accepting a delivery, and asking for changes to a delivery or a draft, are guarded writes, with two outcomes:
 
-- Accept a delivery with `growwer_approve_order`. The seller is paid and it cannot be undone, so it is a guarded write, with two outcomes:
-  - The client shows a confirmation form, which is the confirmation, so do not ask again in the chat. Only an Accept with `confirm` ticked approves it. `confirmation_declined` and `confirmation_not_answered` change nothing.
-  - The call answers `elicitation_unsupported`. Nothing has changed. Show `details.summary` and the page in `details.webUrl`, where the user can approve it themselves. Do not retry the call.
+- The client shows a confirmation form, which is the confirmation, so do not ask again in the chat. Only an Accept with `confirm` ticked carries out the write. `confirmation_declined` and `confirmation_not_answered` change nothing.
+- The call answers `elicitation_unsupported`. Nothing has changed. Show `details.summary` and the order's page in `details.webUrl`, where the user can do it themselves. Do not retry the call.
+
+The writes:
+
+- Accept a delivery with `growwer_approve_order`. The seller is paid and it cannot be undone.
 - Ask for changes to a delivery with `growwer_request_order_update`, with the user's reason.
 - Accept a draft with `growwer_approve_order_draft`, or ask for changes with `growwer_request_order_draft_update`, with the user's reason.
 

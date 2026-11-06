@@ -7,16 +7,17 @@ import { CATALOG } from '../src/catalog.ts';
 
 const skillsPath = fileURLToPath(new URL('../skills/', import.meta.url));
 
-/** `McpToolOverlay::GUARDED` in the monolith: the writes that run only after a confirmation form. */
-const GUARDED_WRITES = [
-  'growwer_approve_order',
-  'growwer_cancel_order',
-  'growwer_create_order',
-  'growwer_delete_project',
-  'growwer_delete_seller_media',
-  'growwer_reject_seller_order',
-  'growwer_review_managed_service_proposals',
-];
+/**
+ * `McpToolOverlay::GUARDED` in the monolith: the writes that run only after a confirmation form.
+ * The catalogue describes each as one where the user "is asked to confirm" first, so the list
+ * follows the catalogue instead of a copy that drifts when another write becomes guarded.
+ */
+const GUARDED_WRITES = CATALOG.tools
+  .filter((tool) => tool.description?.includes('is asked to confirm'))
+  .map((tool) => tool.name);
+
+/** The guarded writes the committed catalogue holds, so a reworded description cannot drop one silently. */
+const GUARDED_WRITE_COUNT = 18;
 
 const skills = readdirSync(skillsPath);
 
@@ -51,6 +52,10 @@ describe('the skills', () => {
       assert.match(yaml, /url: "https:\/\/tool\.growwer\.com\/mcp"/, `${skill} points elsewhere`);
       assert.ok(yaml.includes(`Use $${skill} to`), `${skill} has the wrong default prompt`);
     }
+  });
+
+  it('know every guarded write of the catalogue', () => {
+    assert.equal(GUARDED_WRITES.length, GUARDED_WRITE_COUNT, `guarded writes found: ${GUARDED_WRITES.join(', ')}`);
   });
 
   it('cover both outcomes of every guarded write they name', () => {
