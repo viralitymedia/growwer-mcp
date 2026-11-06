@@ -19,9 +19,14 @@ Call `growwer_list_seller_orders`, paging with `offset` and `limit` until `offse
 
 ## Act by state
 
-- `pending_acceptance`: ask whether the user takes the order. Accept it with `growwer_accept_seller_order`. Reject it with `growwer_reject_seller_order` and the user's reason. The buyer gets the price back, so rejecting is a guarded write, with two outcomes:
-  - The client shows a confirmation form, which is the confirmation, so do not ask again in the chat. Only an Accept with `confirm` ticked rejects the order. `confirmation_declined` and `confirmation_not_answered` change nothing.
-  - The call answers `elicitation_unsupported`. Nothing has changed. Show `details.summary` and the page in `details.webUrl`, where the user can reject it themselves. Do not retry the call.
+Accepting an order runs at once. Every other write below, rejecting, delivering and refusing an update, tells the buyer, so it is a guarded write, with two outcomes:
+
+- The client shows a confirmation form, which is the confirmation, so do not ask again in the chat. Only an Accept with `confirm` ticked carries out the write. `confirmation_declined` and `confirmation_not_answered` change nothing.
+- The call answers `elicitation_unsupported`. Nothing has changed. Show `details.summary` and the page in `details.webUrl`, where the user can do it themselves. Do not retry the call.
+
+By state:
+
+- `pending_acceptance`: ask whether the user takes the order. Accept it with `growwer_accept_seller_order`. Reject it with `growwer_reject_seller_order` and the user's reason; the buyer gets the price back.
 - `pending_draft`, a post order the user writes: upload the file with `growwer_upload_file` and deliver the id it answers as `fileId` with `growwer_deliver_seller_order_draft`.
 - `pending_draft_update`: the buyer asked for changes to the draft. Either upload the new file and deliver it as `fileId` with `growwer_deliver_seller_order_draft_update`, or refuse with `growwer_refute_seller_order_draft_update` and the user's reason.
 - `pending_order_delivery`, once published: deliver it with `growwer_deliver_seller_order`. A post order takes the `url` of the post, which the user gives you, and `publicationDateConfirmed` true once they confirm the date. A link addition takes neither.
