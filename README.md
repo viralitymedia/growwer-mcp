@@ -240,18 +240,20 @@ arguments returns the first result without writing twice.
 
 ### Changing things
 
-Tools in **bold** are guarded: they move money or cannot be undone, so the server asks you to confirm
-in your client before anything happens. See [Limits](#limits).
+Tools in **bold** are guarded: they spend money, pay a seller, cancel, refuse or delete something for
+good, decide a campaign's proposals, send text, a URL or a file to the other party of an order, or
+choose where Growwer sends your webhook events. The server asks you to confirm in your client before
+anything happens. See [Limits](#limits).
 
 | Area | Tools |
 |---|---|
 | Projects | `growwer_create_project`, `growwer_update_project`, **`growwer_delete_project`**, `growwer_create_saved_filter`, `growwer_delete_saved_filter` |
 | Catalogue | `growwer_favourite_media`, `growwer_unfavourite_media`, `growwer_discard_media`, `growwer_undiscard_media`, `growwer_request_medias` |
-| Orders | **`growwer_create_order`**, **`growwer_cancel_order`**, **`growwer_approve_order`**, `growwer_approve_order_draft`, `growwer_request_order_draft_update`, `growwer_request_order_update`, `growwer_upload_file` |
+| Orders | **`growwer_create_order`**, **`growwer_cancel_order`**, **`growwer_approve_order`**, `growwer_approve_order_draft`, **`growwer_request_order_draft_update`**, **`growwer_request_order_update`**, `growwer_upload_file` |
 | Managed service | `growwer_request_managed_service_campaign`, `growwer_request_managed_service_info`, **`growwer_review_managed_service_proposals`** |
 | Media you sell on | `growwer_create_seller_media`, `growwer_update_seller_media`, **`growwer_delete_seller_media`**, `growwer_apply_seller_media_competitive_fees`, `growwer_put_seller_holiday` |
-| Orders you sell | `growwer_accept_seller_order`, **`growwer_reject_seller_order`**, `growwer_deliver_seller_order`, `growwer_deliver_seller_order_draft`, `growwer_deliver_seller_order_draft_update`, `growwer_deliver_seller_order_update`, `growwer_refute_seller_order_draft_update`, `growwer_refute_seller_order_update` |
-| Webhooks | `growwer_create_webhook`, `growwer_update_webhook`, **`growwer_delete_webhook`**, `growwer_rotate_webhook_secret`, `growwer_send_webhook_test`, `growwer_redeliver_webhook` |
+| Orders you sell | `growwer_accept_seller_order`, **`growwer_reject_seller_order`**, **`growwer_deliver_seller_order`**, **`growwer_deliver_seller_order_draft`**, **`growwer_deliver_seller_order_draft_update`**, **`growwer_deliver_seller_order_update`**, **`growwer_refute_seller_order_draft_update`**, **`growwer_refute_seller_order_update`** |
+| Webhooks | **`growwer_create_webhook`**, **`growwer_update_webhook`** (only when it changes the URL), **`growwer_delete_webhook`**, `growwer_rotate_webhook_secret`, `growwer_send_webhook_test`, `growwer_redeliver_webhook` |
 
 ## Prompts
 
