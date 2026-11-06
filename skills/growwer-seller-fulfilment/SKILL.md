@@ -22,7 +22,7 @@ Call `growwer_list_seller_orders`, paging with `offset` and `limit` until `offse
 Accepting an order runs at once. Every other write below, rejecting, delivering and refusing an update, tells the buyer, so it is a guarded write, with two outcomes:
 
 - The client shows a confirmation form, which is the confirmation, so do not ask again in the chat. Only an Accept with `confirm` ticked carries out the write. `confirmation_declined` and `confirmation_not_answered` change nothing.
-- The call answers `elicitation_unsupported`. Nothing has changed. Show `details.summary` and the order's page in `details.webUrl`, where the user can do it themselves. Do not retry the call.
+- The call answers `elicitation_unsupported`. Nothing has changed. Show `details.summary` and the page in `details.webUrl`, where the user can do it themselves. Do not retry the call.
 
 By state:
 

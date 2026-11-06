@@ -10,15 +10,15 @@ Find media to publish on for one project and recommend a shortlist the user can 
 ## Before starting
 
 - Use the connected Growwer MCP tools. If they are unavailable or authentication fails, ask the user to connect Growwer.
-- Call `growwer_list_projects` and take the project the user named, by its name or its website. Ask which project this is for only when the user named none, or when more than one project matches.
+- Call `growwer_list_projects` and take the project the user named, by its name or its website. It answers 20 projects a page, newest first, so page on with `offset` until the project shows or `offset` reaches `total`. Ask which project this is for only when the user named none, or when more than one project matches; when none matches, say so.
 
 ## A question about one media
 
 When the user names a domain, or asks whether a given media is among those Growwer recommends for the project, answer that question directly. Do not ask first for budget, language, country, topics or metrics.
 
-1. Call `growwer_search_project_medias` with the project id, `source` `recommended` and the named domain as `domain`. The filter matches every domain that contains the text, so pick the media whose `domain` is the one the user named.
-2. If it is there, say it is among the media Growwer recommends for the project, and give its domain rating from `metrics.domainRating` and its post price from `postOffer.price`, as the answer gives them: `amountDecimal` in `currency`, or `amount` in cents. A null domain rating has not been measured yet, and a null `postOffer` means the media sells no post; say so rather than giving a figure.
-3. If it is not there, say it is not among the media Growwer recommends for the project.
+1. Call `growwer_search_project_medias` with the project id, `source` `recommended` and the named domain as `domain`, without its scheme, a leading `www.` or any path: `https://www.example.com/blog` becomes `example.com`. The filter matches every media whose URL contains the text, so pick the media whose `domain` is the one the user named.
+2. If it is there, say it is among the media Growwer recommends for the project, and give its domain rating from `metrics.domainRating` and its post price from `postOffer.price`, as the answer gives them: `amountDecimal` in `currency`, or `amount` in cents. A null domain rating has not been measured yet; say so rather than giving a figure.
+3. If it is not there and the project's `state` is `analyzing`, say Growwer has not finished recommending media for the project yet, rather than that the media is not recommended. Otherwise say it is not among the media Growwer recommends for the project.
 
 Stop there unless the user asks for more, such as other candidates.
 

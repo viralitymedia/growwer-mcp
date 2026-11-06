@@ -26,7 +26,7 @@ No tool answers the spend of a period, so add it up from the buyer movements:
 
 - Take the movements of `growwer_list_buyer_transactions` whose `type` is `debit_from_order` and whose `createdAt` falls in the period, from every page of the period, not only the first.
 - Leave out those whose `state` is `cancelled`: their order was refunded. Count `pending_confirmation` and `confirmed` ones.
-- Add their `amountDecimal`, or their `amount` in cents where `amountDecimal` is missing, and keep a separate total for each currency.
+- Add their `amount.amountDecimal`, or `amount.amount` in cents where it is missing, and keep a separate total for each currency.
 
 State the result as the sum of the order debits the transaction list shows, name the period with its dates, and say how many debits it adds up and how many refunded ones it leaves out.
 
