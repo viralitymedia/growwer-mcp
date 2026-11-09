@@ -2448,28 +2448,24 @@
                         "type": "string"
                     },
                     "expectedPrice": {
-                        "description": "The `price` POST /orders/estimate answered. Only EUR is accepted. In cents, as the estimate answered it: 1800 is 18.00 EUR.",
-                        "allOf": [
-                            {
-                                "required": [
-                                    "amount",
-                                    "currency"
-                                ],
-                                "properties": {
-                                    "amount": {
-                                        "description": "Integer cents: 12500 is 125.00 EUR.",
-                                        "type": "integer",
-                                        "example": 12500
-                                    },
-                                    "currency": {
-                                        "description": "ISO 4217 currency code.",
-                                        "type": "string",
-                                        "example": "EUR"
-                                    }
-                                },
-                                "type": "object"
+                        "required": [
+                            "amount",
+                            "currency"
+                        ],
+                        "properties": {
+                            "amount": {
+                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                "type": "integer",
+                                "example": 12500
+                            },
+                            "currency": {
+                                "description": "ISO 4217 currency code.",
+                                "type": "string",
+                                "example": "EUR"
                             }
-                        ]
+                        },
+                        "type": "object",
+                        "description": "The `price` POST /orders/estimate answered. Only EUR is accepted. In cents, as the estimate answered it: 1800 is 18.00 EUR."
                     }
                 },
                 "required": [
@@ -3237,58 +3233,50 @@
                                             ]
                                         },
                                         "feeWhenSellerWritesPost": {
-                                            "description": "What you are paid for a post you write; null or left out when you do not offer it.",
-                                            "allOf": [
-                                                {
-                                                    "required": [
-                                                        "amount",
-                                                        "currency"
-                                                    ],
-                                                    "properties": {
-                                                        "amount": {
-                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                            "type": "integer",
-                                                            "example": 12500
-                                                        },
-                                                        "currency": {
-                                                            "description": "ISO 4217 currency code.",
-                                                            "type": "string",
-                                                            "example": "EUR"
-                                                        }
-                                                    },
-                                                    "type": [
-                                                        "object",
-                                                        "null"
-                                                    ]
+                                            "required": [
+                                                "amount",
+                                                "currency"
+                                            ],
+                                            "properties": {
+                                                "amount": {
+                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "currency": {
+                                                    "description": "ISO 4217 currency code.",
+                                                    "type": "string",
+                                                    "example": "EUR"
                                                 }
-                                            ]
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "description": "What you are paid for a post you write; null or left out when you do not offer it."
                                         },
                                         "feeWhenSellerDoesNotWritePost": {
-                                            "description": "What you are paid for a post the buyer or Growwer writes; null or left out when you do not offer it.",
-                                            "allOf": [
-                                                {
-                                                    "required": [
-                                                        "amount",
-                                                        "currency"
-                                                    ],
-                                                    "properties": {
-                                                        "amount": {
-                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                            "type": "integer",
-                                                            "example": 12500
-                                                        },
-                                                        "currency": {
-                                                            "description": "ISO 4217 currency code.",
-                                                            "type": "string",
-                                                            "example": "EUR"
-                                                        }
-                                                    },
-                                                    "type": [
-                                                        "object",
-                                                        "null"
-                                                    ]
+                                            "required": [
+                                                "amount",
+                                                "currency"
+                                            ],
+                                            "properties": {
+                                                "amount": {
+                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "currency": {
+                                                    "description": "ISO 4217 currency code.",
+                                                    "type": "string",
+                                                    "example": "EUR"
                                                 }
-                                            ]
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "description": "What you are paid for a post the buyer or Growwer writes; null or left out when you do not offer it."
                                         }
                                     },
                                     "type": "object"
@@ -3348,28 +3336,24 @@
                                             ]
                                         },
                                         "fee": {
-                                            "description": "Your base fee for adding a link of this type.",
-                                            "allOf": [
-                                                {
-                                                    "required": [
-                                                        "amount",
-                                                        "currency"
-                                                    ],
-                                                    "properties": {
-                                                        "amount": {
-                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                            "type": "integer",
-                                                            "example": 12500
-                                                        },
-                                                        "currency": {
-                                                            "description": "ISO 4217 currency code.",
-                                                            "type": "string",
-                                                            "example": "EUR"
-                                                        }
-                                                    },
-                                                    "type": "object"
+                                            "required": [
+                                                "amount",
+                                                "currency"
+                                            ],
+                                            "properties": {
+                                                "amount": {
+                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "currency": {
+                                                    "description": "ISO 4217 currency code.",
+                                                    "type": "string",
+                                                    "example": "EUR"
                                                 }
-                                            ]
+                                            },
+                                            "type": "object",
+                                            "description": "Your base fee for adding a link of this type."
                                         }
                                     },
                                     "type": "object"
@@ -3398,28 +3382,24 @@
                                     ]
                                 },
                                 "cost": {
-                                    "description": "What you are paid for the extra service.",
-                                    "allOf": [
-                                        {
-                                            "required": [
-                                                "amount",
-                                                "currency"
-                                            ],
-                                            "properties": {
-                                                "amount": {
-                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                    "type": "integer",
-                                                    "example": 12500
-                                                },
-                                                "currency": {
-                                                    "description": "ISO 4217 currency code.",
-                                                    "type": "string",
-                                                    "example": "EUR"
-                                                }
-                                            },
-                                            "type": "object"
+                                    "required": [
+                                        "amount",
+                                        "currency"
+                                    ],
+                                    "properties": {
+                                        "amount": {
+                                            "description": "Integer cents: 12500 is 125.00 EUR.",
+                                            "type": "integer",
+                                            "example": 12500
+                                        },
+                                        "currency": {
+                                            "description": "ISO 4217 currency code.",
+                                            "type": "string",
+                                            "example": "EUR"
                                         }
-                                    ]
+                                    },
+                                    "type": "object",
+                                    "description": "What you are paid for the extra service."
                                 }
                             },
                             "type": "object"
@@ -4033,28 +4013,24 @@
                         "uniqueItems": true
                     },
                     "lowBalanceThreshold": {
-                        "description": "With `balance.low`: the available buyer balance below which the event fires, in EUR.",
-                        "allOf": [
-                            {
-                                "required": [
-                                    "amount",
-                                    "currency"
-                                ],
-                                "properties": {
-                                    "amount": {
-                                        "description": "Integer cents: 12500 is 125.00 EUR.",
-                                        "type": "integer",
-                                        "example": 12500
-                                    },
-                                    "currency": {
-                                        "description": "ISO 4217 currency code.",
-                                        "type": "string",
-                                        "example": "EUR"
-                                    }
-                                },
-                                "type": "object"
+                        "required": [
+                            "amount",
+                            "currency"
+                        ],
+                        "properties": {
+                            "amount": {
+                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                "type": "integer",
+                                "example": 12500
+                            },
+                            "currency": {
+                                "description": "ISO 4217 currency code.",
+                                "type": "string",
+                                "example": "EUR"
                             }
-                        ]
+                        },
+                        "type": "object",
+                        "description": "With `balance.low`: the available buyer balance below which the event fires, in EUR."
                     },
                     "description": {
                         "description": "A note of yours, at most 255 characters.",
@@ -4210,7 +4186,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": false,
                 "idempotentHint": false,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -14282,7 +14258,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": false,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -15681,28 +15657,24 @@
                         ]
                     },
                     "estimatedBudget": {
-                        "description": "At least 500 EUR. Only EUR is accepted.",
-                        "allOf": [
-                            {
-                                "required": [
-                                    "amount",
-                                    "currency"
-                                ],
-                                "properties": {
-                                    "amount": {
-                                        "description": "Integer cents: 12500 is 125.00 EUR.",
-                                        "type": "integer",
-                                        "example": 12500
-                                    },
-                                    "currency": {
-                                        "description": "ISO 4217 currency code.",
-                                        "type": "string",
-                                        "example": "EUR"
-                                    }
-                                },
-                                "type": "object"
+                        "required": [
+                            "amount",
+                            "currency"
+                        ],
+                        "properties": {
+                            "amount": {
+                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                "type": "integer",
+                                "example": 12500
+                            },
+                            "currency": {
+                                "description": "ISO 4217 currency code.",
+                                "type": "string",
+                                "example": "EUR"
                             }
-                        ]
+                        },
+                        "type": "object",
+                        "description": "At least 500 EUR. Only EUR is accepted."
                     },
                     "additionalInfo": {
                         "type": [
@@ -15782,28 +15754,24 @@
                         ]
                     },
                     "estimatedBudget": {
-                        "description": "At least 500 EUR. Only EUR is accepted.",
-                        "allOf": [
-                            {
-                                "required": [
-                                    "amount",
-                                    "currency"
-                                ],
-                                "properties": {
-                                    "amount": {
-                                        "description": "Integer cents: 12500 is 125.00 EUR.",
-                                        "type": "integer",
-                                        "example": 12500
-                                    },
-                                    "currency": {
-                                        "description": "ISO 4217 currency code.",
-                                        "type": "string",
-                                        "example": "EUR"
-                                    }
-                                },
-                                "type": "object"
+                        "required": [
+                            "amount",
+                            "currency"
+                        ],
+                        "properties": {
+                            "amount": {
+                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                "type": "integer",
+                                "example": 12500
+                            },
+                            "currency": {
+                                "description": "ISO 4217 currency code.",
+                                "type": "string",
+                                "example": "EUR"
                             }
-                        ]
+                        },
+                        "type": "object",
+                        "description": "At least 500 EUR. Only EUR is accepted."
                     },
                     "additionalInfo": {
                         "type": [
@@ -18355,7 +18323,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": false,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -18647,58 +18615,50 @@
                                             ]
                                         },
                                         "feeWhenSellerWritesPost": {
-                                            "description": "What you are paid for a post you write; null or left out when you do not offer it.",
-                                            "allOf": [
-                                                {
-                                                    "required": [
-                                                        "amount",
-                                                        "currency"
-                                                    ],
-                                                    "properties": {
-                                                        "amount": {
-                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                            "type": "integer",
-                                                            "example": 12500
-                                                        },
-                                                        "currency": {
-                                                            "description": "ISO 4217 currency code.",
-                                                            "type": "string",
-                                                            "example": "EUR"
-                                                        }
-                                                    },
-                                                    "type": [
-                                                        "object",
-                                                        "null"
-                                                    ]
+                                            "required": [
+                                                "amount",
+                                                "currency"
+                                            ],
+                                            "properties": {
+                                                "amount": {
+                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "currency": {
+                                                    "description": "ISO 4217 currency code.",
+                                                    "type": "string",
+                                                    "example": "EUR"
                                                 }
-                                            ]
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "description": "What you are paid for a post you write; null or left out when you do not offer it."
                                         },
                                         "feeWhenSellerDoesNotWritePost": {
-                                            "description": "What you are paid for a post the buyer or Growwer writes; null or left out when you do not offer it.",
-                                            "allOf": [
-                                                {
-                                                    "required": [
-                                                        "amount",
-                                                        "currency"
-                                                    ],
-                                                    "properties": {
-                                                        "amount": {
-                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                            "type": "integer",
-                                                            "example": 12500
-                                                        },
-                                                        "currency": {
-                                                            "description": "ISO 4217 currency code.",
-                                                            "type": "string",
-                                                            "example": "EUR"
-                                                        }
-                                                    },
-                                                    "type": [
-                                                        "object",
-                                                        "null"
-                                                    ]
+                                            "required": [
+                                                "amount",
+                                                "currency"
+                                            ],
+                                            "properties": {
+                                                "amount": {
+                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "currency": {
+                                                    "description": "ISO 4217 currency code.",
+                                                    "type": "string",
+                                                    "example": "EUR"
                                                 }
-                                            ]
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "description": "What you are paid for a post the buyer or Growwer writes; null or left out when you do not offer it."
                                         }
                                     },
                                     "type": "object"
@@ -18758,28 +18718,24 @@
                                             ]
                                         },
                                         "fee": {
-                                            "description": "Your base fee for adding a link of this type.",
-                                            "allOf": [
-                                                {
-                                                    "required": [
-                                                        "amount",
-                                                        "currency"
-                                                    ],
-                                                    "properties": {
-                                                        "amount": {
-                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                            "type": "integer",
-                                                            "example": 12500
-                                                        },
-                                                        "currency": {
-                                                            "description": "ISO 4217 currency code.",
-                                                            "type": "string",
-                                                            "example": "EUR"
-                                                        }
-                                                    },
-                                                    "type": "object"
+                                            "required": [
+                                                "amount",
+                                                "currency"
+                                            ],
+                                            "properties": {
+                                                "amount": {
+                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "currency": {
+                                                    "description": "ISO 4217 currency code.",
+                                                    "type": "string",
+                                                    "example": "EUR"
                                                 }
-                                            ]
+                                            },
+                                            "type": "object",
+                                            "description": "Your base fee for adding a link of this type."
                                         }
                                     },
                                     "type": "object"
@@ -18808,28 +18764,24 @@
                                     ]
                                 },
                                 "cost": {
-                                    "description": "What you are paid for the extra service.",
-                                    "allOf": [
-                                        {
-                                            "required": [
-                                                "amount",
-                                                "currency"
-                                            ],
-                                            "properties": {
-                                                "amount": {
-                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                    "type": "integer",
-                                                    "example": 12500
-                                                },
-                                                "currency": {
-                                                    "description": "ISO 4217 currency code.",
-                                                    "type": "string",
-                                                    "example": "EUR"
-                                                }
-                                            },
-                                            "type": "object"
+                                    "required": [
+                                        "amount",
+                                        "currency"
+                                    ],
+                                    "properties": {
+                                        "amount": {
+                                            "description": "Integer cents: 12500 is 125.00 EUR.",
+                                            "type": "integer",
+                                            "example": 12500
+                                        },
+                                        "currency": {
+                                            "description": "ISO 4217 currency code.",
+                                            "type": "string",
+                                            "example": "EUR"
                                         }
-                                    ]
+                                    },
+                                    "type": "object",
+                                    "description": "What you are paid for the extra service."
                                 }
                             },
                             "type": "object"
@@ -19426,31 +19378,27 @@
                         "uniqueItems": true
                     },
                     "lowBalanceThreshold": {
-                        "description": "With `balance.low`: the available buyer balance below which the event fires, in EUR. Null removes it.",
-                        "allOf": [
-                            {
-                                "required": [
-                                    "amount",
-                                    "currency"
-                                ],
-                                "properties": {
-                                    "amount": {
-                                        "description": "Integer cents: 12500 is 125.00 EUR.",
-                                        "type": "integer",
-                                        "example": 12500
-                                    },
-                                    "currency": {
-                                        "description": "ISO 4217 currency code.",
-                                        "type": "string",
-                                        "example": "EUR"
-                                    }
-                                },
-                                "type": [
-                                    "object",
-                                    "null"
-                                ]
+                        "required": [
+                            "amount",
+                            "currency"
+                        ],
+                        "properties": {
+                            "amount": {
+                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                "type": "integer",
+                                "example": 12500
+                            },
+                            "currency": {
+                                "description": "ISO 4217 currency code.",
+                                "type": "string",
+                                "example": "EUR"
                             }
-                        ]
+                        },
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "With `balance.low`: the available buyer balance below which the event fires, in EUR. Null removes it."
                     },
                     "description": {
                         "description": "A note of yours, at most 255 characters. Null removes it.",
@@ -19593,7 +19541,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
