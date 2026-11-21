@@ -443,7 +443,7 @@
         {
             "name": "growwer_apply_seller_media_competitive_fees",
             "title": "Apply the suggested competitive fees",
-            "description": "Use this when a seller wants the fees Growwer suggests for one of their medias: sets its post fees to the competitiveFees growwer_get_seller_media answers.",
+            "description": "Use this when a seller wants the fees Growwer suggests for one of their medias: lowers each of its post fees that keeps the media from being competitive, only as far as needed, and never raises a fee. growwer_get_seller_media answers the fees it sets on each link type as competitiveFeesByLinkType; when it answers no competitiveFees, nothing changes. When the fees set still list the media above the marketplaces that list the same domain cheaper, they are saved and warnings holds saved_above_competitors.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -464,164 +464,323 @@
             },
             "outputSchema": {
                 "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "domain": {
-                        "type": "string",
-                        "example": "example.com"
-                    },
-                    "url": {
-                        "description": "The media's root URL.",
-                        "type": "string"
-                    },
-                    "typology": {
-                        "type": "string",
-                        "enum": [
-                            "blog",
-                            "press"
-                        ]
-                    },
-                    "state": {
-                        "type": "string",
-                        "enum": [
-                            "analyzing",
-                            "pending_review",
-                            "active",
-                            "deactivated"
-                        ]
-                    },
-                    "deactivationStrikes": {
-                        "description": "How many times the media was deactivated for not publishing.",
-                        "type": "integer"
-                    },
-                    "country": {
-                        "description": "A country code, as in GET /vocabulary, or null for none.",
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "language": {
-                        "description": "A language code, as in GET /vocabulary.",
-                        "type": "string"
-                    },
-                    "topics": {
-                        "description": "Topic ids, as in GET /vocabulary.",
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    },
-                    "bannedTopics": {
-                        "description": "The topic ids the media refuses, as in GET /vocabulary.",
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    },
-                    "providerComments": {
-                        "description": "Your notes for buyers, or null for none.",
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "publicationRate": {
-                        "description": "The share of the media's orders that were published, in percent, or null without orders.",
-                        "type": [
-                            "integer",
-                            "null"
-                        ]
-                    },
-                    "averageDaysToPublication": {
-                        "description": "The average days from order to publication, or null without published orders.",
-                        "type": [
-                            "integer",
-                            "null"
-                        ]
-                    },
-                    "numPublishedOrders": {
-                        "type": "integer"
-                    },
-                    "onHoliday": {
-                        "type": "boolean"
-                    },
-                    "flashOffer": {
-                        "description": "The flash offer running, or null. Its discount is in `currentCost`, never in the fees.",
+                "description": "A media you sell on as a write answers it (PATCH /seller/medias/{id} and POST /seller/medias/{id}/apply-competitive-fees), with the warnings about the save. GET and the list answer SellerMedia, without them.",
+                "allOf": [
+                    {
+                        "description": "One of your medias, as its seller sees it.",
                         "required": [
-                            "discountPercent",
-                            "endsAt"
+                            "id",
+                            "domain",
+                            "url",
+                            "typology",
+                            "state",
+                            "deactivationStrikes",
+                            "country",
+                            "language",
+                            "topics",
+                            "bannedTopics",
+                            "providerComments",
+                            "publicationRate",
+                            "averageDaysToPublication",
+                            "numPublishedOrders",
+                            "onHoliday",
+                            "flashOffer",
+                            "postOffer",
+                            "linkAdditionOffer",
+                            "competitiveFees",
+                            "competitiveFeesByLinkType",
+                            "createdAt"
                         ],
                         "properties": {
-                            "discountPercent": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "domain": {
+                                "type": "string",
+                                "example": "example.com"
+                            },
+                            "url": {
+                                "description": "The media's root URL.",
+                                "type": "string"
+                            },
+                            "typology": {
+                                "type": "string",
+                                "enum": [
+                                    "blog",
+                                    "press"
+                                ]
+                            },
+                            "state": {
+                                "type": "string",
+                                "enum": [
+                                    "analyzing",
+                                    "pending_review",
+                                    "active",
+                                    "deactivated"
+                                ]
+                            },
+                            "deactivationStrikes": {
+                                "description": "How many times the media was deactivated for not publishing.",
                                 "type": "integer"
                             },
-                            "endsAt": {
+                            "country": {
+                                "description": "A country code, as in GET /vocabulary, or null for none.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "language": {
+                                "description": "A language code, as in GET /vocabulary.",
                                 "type": "string"
-                            }
-                        },
-                        "type": [
-                            "object",
-                            "null"
-                        ]
-                    },
-                    "postOffer": {
-                        "required": [
-                            "pricingOptions",
-                            "maximumLinks",
-                            "advertisingLabellingPolicy",
-                            "promotedSocialNetworks",
-                            "extraServices"
-                        ],
-                        "properties": {
-                            "pricingOptions": {
-                                "description": "One entry per link type you offer.",
+                            },
+                            "topics": {
+                                "description": "Topic ids, as in GET /vocabulary.",
                                 "type": "array",
                                 "items": {
-                                    "allOf": [
-                                        {
-                                            "required": [
-                                                "feeWhenSellerWritesPost",
-                                                "feeWhenSellerDoesNotWritePost"
-                                            ],
-                                            "properties": {
-                                                "feeWhenSellerWritesPost": {
-                                                    "description": "What you are paid for a post you write, or null when you do not offer it.",
-                                                    "allOf": [
-                                                        {
-                                                            "required": [
-                                                                "amount",
-                                                                "currency"
-                                                            ],
-                                                            "properties": {
-                                                                "amount": {
-                                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                                    "type": "integer",
-                                                                    "example": 12500
-                                                                },
-                                                                "currency": {
-                                                                    "description": "ISO 4217 currency code.",
-                                                                    "type": "string",
-                                                                    "example": "EUR"
-                                                                },
-                                                                "amountDecimal": {
-                                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
-                                                                    "type": "string",
-                                                                    "readOnly": true,
-                                                                    "example": "125.00"
+                                    "type": "integer"
+                                }
+                            },
+                            "bannedTopics": {
+                                "description": "The topic ids the media refuses, as in GET /vocabulary.",
+                                "type": "array",
+                                "items": {
+                                    "type": "integer"
+                                }
+                            },
+                            "providerComments": {
+                                "description": "Your notes for buyers, or null for none.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "publicationRate": {
+                                "description": "The share of the media's orders that were published, in percent, or null without orders.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "averageDaysToPublication": {
+                                "description": "The average days from order to publication, or null without published orders.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "numPublishedOrders": {
+                                "type": "integer"
+                            },
+                            "onHoliday": {
+                                "type": "boolean"
+                            },
+                            "flashOffer": {
+                                "description": "The offer running, a time-limited discount, or null. Its discount is in `currentCost`, never in the fees.",
+                                "required": [
+                                    "discountPercent",
+                                    "endsAt"
+                                ],
+                                "properties": {
+                                    "discountPercent": {
+                                        "type": "integer"
+                                    },
+                                    "endsAt": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": [
+                                    "object",
+                                    "null"
+                                ]
+                            },
+                            "postOffer": {
+                                "required": [
+                                    "pricingOptions",
+                                    "maximumLinks",
+                                    "advertisingLabellingPolicy",
+                                    "promotedSocialNetworks",
+                                    "extraServices"
+                                ],
+                                "properties": {
+                                    "pricingOptions": {
+                                        "description": "One entry per link type you offer.",
+                                        "type": "array",
+                                        "items": {
+                                            "allOf": [
+                                                {
+                                                    "required": [
+                                                        "feeWhenSellerWritesPost",
+                                                        "feeWhenSellerDoesNotWritePost"
+                                                    ],
+                                                    "properties": {
+                                                        "feeWhenSellerWritesPost": {
+                                                            "description": "What you are paid for a post you write, or null when you do not offer it.",
+                                                            "allOf": [
+                                                                {
+                                                                    "required": [
+                                                                        "amount",
+                                                                        "currency"
+                                                                    ],
+                                                                    "properties": {
+                                                                        "amount": {
+                                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                            "type": "integer",
+                                                                            "example": 12500
+                                                                        },
+                                                                        "currency": {
+                                                                            "description": "ISO 4217 currency code.",
+                                                                            "type": "string",
+                                                                            "example": "EUR"
+                                                                        },
+                                                                        "amountDecimal": {
+                                                                            "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                            "type": "string",
+                                                                            "readOnly": true,
+                                                                            "example": "125.00"
+                                                                        }
+                                                                    },
+                                                                    "type": [
+                                                                        "object",
+                                                                        "null"
+                                                                    ]
                                                                 }
-                                                            },
-                                                            "type": [
-                                                                "object",
-                                                                "null"
+                                                            ]
+                                                        },
+                                                        "feeWhenSellerDoesNotWritePost": {
+                                                            "description": "What you are paid for a post the buyer or Growwer writes, or null when you do not offer it.",
+                                                            "allOf": [
+                                                                {
+                                                                    "required": [
+                                                                        "amount",
+                                                                        "currency"
+                                                                    ],
+                                                                    "properties": {
+                                                                        "amount": {
+                                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                            "type": "integer",
+                                                                            "example": 12500
+                                                                        },
+                                                                        "currency": {
+                                                                            "description": "ISO 4217 currency code.",
+                                                                            "type": "string",
+                                                                            "example": "EUR"
+                                                                        },
+                                                                        "amountDecimal": {
+                                                                            "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                            "type": "string",
+                                                                            "readOnly": true,
+                                                                            "example": "125.00"
+                                                                        }
+                                                                    },
+                                                                    "type": [
+                                                                        "object",
+                                                                        "null"
+                                                                    ]
+                                                                }
                                                             ]
                                                         }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                {
+                                                    "required": [
+                                                        "linkType",
+                                                        "currentCost"
+                                                    ],
+                                                    "properties": {
+                                                        "linkType": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "dofollow",
+                                                                "nofollow",
+                                                                "citation"
+                                                            ]
+                                                        },
+                                                        "currentCost": {
+                                                            "description": "What you are paid now for the link type, the discount of a running offer (`flashOffer`) included; read-only. Null when the link type has no current pricing.",
+                                                            "allOf": [
+                                                                {
+                                                                    "required": [
+                                                                        "amount",
+                                                                        "currency"
+                                                                    ],
+                                                                    "properties": {
+                                                                        "amount": {
+                                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                            "type": "integer",
+                                                                            "example": 12500
+                                                                        },
+                                                                        "currency": {
+                                                                            "description": "ISO 4217 currency code.",
+                                                                            "type": "string",
+                                                                            "example": "EUR"
+                                                                        },
+                                                                        "amountDecimal": {
+                                                                            "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                            "type": "string",
+                                                                            "readOnly": true,
+                                                                            "example": "125.00"
+                                                                        }
+                                                                    },
+                                                                    "type": [
+                                                                        "object",
+                                                                        "null"
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "maximumLinks": {
+                                        "description": "How many links a sponsored post may hold, 1 to 4.",
+                                        "type": "integer"
+                                    },
+                                    "advertisingLabellingPolicy": {
+                                        "description": "Whether sponsored posts are labelled as advertising.",
+                                        "type": "string",
+                                        "enum": [
+                                            "always",
+                                            "never"
+                                        ]
+                                    },
+                                    "promotedSocialNetworks": {
+                                        "description": "The social networks sponsored posts are promoted on.",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": [
+                                                "twitter",
+                                                "instagram",
+                                                "facebook",
+                                                "pinterest",
+                                                "tumblr",
+                                                "newsletter"
+                                            ]
+                                        }
+                                    },
+                                    "extraServices": {
+                                        "description": "Read here, but PATCH /seller/medias/{id} and POST /seller/medias take it at the top level of the body.",
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "name",
+                                                "cost"
+                                            ],
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "list_on_homepage",
+                                                        "extra_charge_for_sensitive_topic"
                                                     ]
                                                 },
-                                                "feeWhenSellerDoesNotWritePost": {
-                                                    "description": "What you are paid for a post the buyer or Growwer writes, or null when you do not offer it.",
+                                                "cost": {
+                                                    "description": "What you are paid for the extra service.",
                                                     "allOf": [
                                                         {
                                                             "required": [
@@ -646,19 +805,29 @@
                                                                     "example": "125.00"
                                                                 }
                                                             },
-                                                            "type": [
-                                                                "object",
-                                                                "null"
-                                                            ]
+                                                            "type": "object"
                                                         }
                                                     ]
                                                 }
                                             },
                                             "type": "object"
-                                        },
-                                        {
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "linkAdditionOffer": {
+                                "description": "Adding a link to an existing article, or null when you do not offer it.",
+                                "required": [
+                                    "pricingOptions"
+                                ],
+                                "properties": {
+                                    "pricingOptions": {
+                                        "type": "array",
+                                        "items": {
                                             "required": [
                                                 "linkType",
+                                                "fee",
                                                 "currentCost"
                                             ],
                                             "properties": {
@@ -670,8 +839,38 @@
                                                         "citation"
                                                     ]
                                                 },
+                                                "fee": {
+                                                    "description": "Your base fee for the link type.",
+                                                    "allOf": [
+                                                        {
+                                                            "required": [
+                                                                "amount",
+                                                                "currency"
+                                                            ],
+                                                            "properties": {
+                                                                "amount": {
+                                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                    "type": "integer",
+                                                                    "example": 12500
+                                                                },
+                                                                "currency": {
+                                                                    "description": "ISO 4217 currency code.",
+                                                                    "type": "string",
+                                                                    "example": "EUR"
+                                                                },
+                                                                "amountDecimal": {
+                                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                    "type": "string",
+                                                                    "readOnly": true,
+                                                                    "example": "125.00"
+                                                                }
+                                                            },
+                                                            "type": "object"
+                                                        }
+                                                    ]
+                                                },
                                                 "currentCost": {
-                                                    "description": "What you are paid now for the link type, flash offer discount included; read-only. Null when the link type has no current pricing.",
+                                                    "description": "What you are paid now for the link type, the discount of a running offer (`flashOffer`) included; read-only.",
                                                     "allOf": [
                                                         {
                                                             "required": [
@@ -706,102 +905,107 @@
                                             },
                                             "type": "object"
                                         }
-                                    ]
-                                }
-                            },
-                            "maximumLinks": {
-                                "description": "How many links a sponsored post may hold, 1 to 4.",
-                                "type": "integer"
-                            },
-                            "advertisingLabellingPolicy": {
-                                "description": "Whether sponsored posts are labelled as advertising.",
-                                "type": "string",
-                                "enum": [
-                                    "always",
-                                    "never"
+                                    }
+                                },
+                                "type": [
+                                    "object",
+                                    "null"
                                 ]
                             },
-                            "promotedSocialNetworks": {
-                                "description": "The social networks sponsored posts are promoted on.",
-                                "type": "array",
-                                "items": {
-                                    "type": "string",
-                                    "enum": [
-                                        "twitter",
-                                        "instagram",
-                                        "facebook",
-                                        "pinterest",
-                                        "tumblr",
-                                        "newsletter"
-                                    ]
-                                }
-                            },
-                            "extraServices": {
-                                "description": "Read here, but PATCH /seller/medias/{id} and POST /seller/medias take it at the top level of the body.",
-                                "type": "array",
-                                "items": {
-                                    "required": [
-                                        "name",
-                                        "cost"
-                                    ],
-                                    "properties": {
-                                        "name": {
-                                            "type": "string",
-                                            "enum": [
-                                                "list_on_homepage",
-                                                "extra_charge_for_sensitive_topic"
-                                            ]
+                            "competitiveFees": {
+                                "description": "The post fees Growwer suggests to sell more, as the seller media pages do, or null when it suggests none: for each side, the highest fee POST /seller/medias/{id}/apply-competitive-fees would set on that side, else null. The apply lowers, per link type, a fee above the highest whole-euro fee that lists the media at least 1 EUR below its cheapest price on the marketplaces Growwer compares with to that fee, and lowers by 1 EUR one fee of a link type that then still does not list the media at least 1 EUR below that price. It never raises a fee. Where it lowers several link types, this is the highest per side across them, so a link type's own new fee can be lower: `competitiveFeesByLinkType` gives the fees the apply sets on each link type.",
+                                "allOf": [
+                                    {
+                                        "required": [
+                                            "feeWhenSellerWritesPost",
+                                            "feeWhenSellerDoesNotWritePost"
+                                        ],
+                                        "properties": {
+                                            "feeWhenSellerWritesPost": {
+                                                "description": "What you are paid for a post you write, or null when you do not offer it.",
+                                                "allOf": [
+                                                    {
+                                                        "required": [
+                                                            "amount",
+                                                            "currency"
+                                                        ],
+                                                        "properties": {
+                                                            "amount": {
+                                                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                "type": "integer",
+                                                                "example": 12500
+                                                            },
+                                                            "currency": {
+                                                                "description": "ISO 4217 currency code.",
+                                                                "type": "string",
+                                                                "example": "EUR"
+                                                            },
+                                                            "amountDecimal": {
+                                                                "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                "type": "string",
+                                                                "readOnly": true,
+                                                                "example": "125.00"
+                                                            }
+                                                        },
+                                                        "type": [
+                                                            "object",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            "feeWhenSellerDoesNotWritePost": {
+                                                "description": "What you are paid for a post the buyer or Growwer writes, or null when you do not offer it.",
+                                                "allOf": [
+                                                    {
+                                                        "required": [
+                                                            "amount",
+                                                            "currency"
+                                                        ],
+                                                        "properties": {
+                                                            "amount": {
+                                                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                "type": "integer",
+                                                                "example": 12500
+                                                            },
+                                                            "currency": {
+                                                                "description": "ISO 4217 currency code.",
+                                                                "type": "string",
+                                                                "example": "EUR"
+                                                            },
+                                                            "amountDecimal": {
+                                                                "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                "type": "string",
+                                                                "readOnly": true,
+                                                                "example": "125.00"
+                                                            }
+                                                        },
+                                                        "type": [
+                                                            "object",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                ]
+                                            }
                                         },
-                                        "cost": {
-                                            "description": "What you are paid for the extra service.",
-                                            "allOf": [
-                                                {
-                                                    "required": [
-                                                        "amount",
-                                                        "currency"
-                                                    ],
-                                                    "properties": {
-                                                        "amount": {
-                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                            "type": "integer",
-                                                            "example": 12500
-                                                        },
-                                                        "currency": {
-                                                            "description": "ISO 4217 currency code.",
-                                                            "type": "string",
-                                                            "example": "EUR"
-                                                        },
-                                                        "amountDecimal": {
-                                                            "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
-                                                            "type": "string",
-                                                            "readOnly": true,
-                                                            "example": "125.00"
-                                                        }
-                                                    },
-                                                    "type": "object"
-                                                }
-                                            ]
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        },
-                        "type": "object"
-                    },
-                    "linkAdditionOffer": {
-                        "description": "Adding a link to an existing article, or null when you do not offer it.",
-                        "required": [
-                            "pricingOptions"
-                        ],
-                        "properties": {
-                            "pricingOptions": {
-                                "type": "array",
+                                        "type": [
+                                            "object",
+                                            "null"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "competitiveFeesByLinkType": {
+                                "description": "The fees POST /seller/medias/{id}/apply-competitive-fees would set, per link type: one entry per link type it lowers, in the order dofollow, nofollow, citation, or null when it suggests none (exactly when `competitiveFees` is null). Per side, the highest of these is `competitiveFees`.",
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
                                 "items": {
                                     "required": [
                                         "linkType",
-                                        "fee",
-                                        "currentCost"
+                                        "feeWhenSellerWritesPost",
+                                        "feeWhenSellerDoesNotWritePost"
                                     ],
                                     "properties": {
                                         "linkType": {
@@ -812,8 +1016,8 @@
                                                 "citation"
                                             ]
                                         },
-                                        "fee": {
-                                            "description": "Your base fee for the link type.",
+                                        "feeWhenSellerWritesPost": {
+                                            "description": "The fee the apply sets for a post you write on this link type, or null when it keeps your fee on that side.",
                                             "allOf": [
                                                 {
                                                     "required": [
@@ -838,12 +1042,15 @@
                                                             "example": "125.00"
                                                         }
                                                     },
-                                                    "type": "object"
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ]
                                                 }
                                             ]
                                         },
-                                        "currentCost": {
-                                            "description": "What you are paid now for the link type, flash offer discount included; read-only.",
+                                        "feeWhenSellerDoesNotWritePost": {
+                                            "description": "The fee the apply sets for a post the buyer or Growwer writes on this link type, or null when it keeps your fee on that side.",
                                             "allOf": [
                                                 {
                                                     "required": [
@@ -878,123 +1085,125 @@
                                     },
                                     "type": "object"
                                 }
+                            },
+                            "createdAt": {
+                                "type": "string"
                             }
                         },
-                        "type": [
-                            "object",
-                            "null"
-                        ]
+                        "type": "object"
                     },
-                    "competitiveFees": {
-                        "description": "The post fees Growwer suggests to sell more, as the seller media page does, or null when it suggests none. A side Growwer finds no competitive fee for is null: unlike the page, it never shows the fixed fee the page falls back to. POST /seller/medias/{id}/apply-competitive-fees sets them.",
-                        "allOf": [
-                            {
-                                "required": [
-                                    "feeWhenSellerWritesPost",
-                                    "feeWhenSellerDoesNotWritePost"
-                                ],
-                                "properties": {
-                                    "feeWhenSellerWritesPost": {
-                                        "description": "What you are paid for a post you write, or null when you do not offer it.",
-                                        "allOf": [
-                                            {
-                                                "required": [
-                                                    "amount",
-                                                    "currency"
-                                                ],
-                                                "properties": {
-                                                    "amount": {
-                                                        "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                        "type": "integer",
-                                                        "example": 12500
+                    {
+                        "required": [
+                            "warnings"
+                        ],
+                        "properties": {
+                            "warnings": {
+                                "description": "What the save left to know, empty when nothing. `saved_above_competitors`: the fees were saved, but the media still lists above the marketplaces that list the same domain cheaper, and some fee would list it under them. `saved_not_recommended`: the same, for a save that raised a fee or added a side or link type: the media is not recommended in buyers' projects while it lists above them, and stays in the catalogue. `details.competitiveFees` holds the highest fee of each side that lists it under them (`feeWhenSellerWritesPost`, `feeWhenSellerDoesNotWritePost`, null when none does or the media does not offer that side) and `details.competitorCount` how many marketplaces those are, never which nor their prices.",
+                                "type": "array",
+                                "items": {
+                                    "required": [
+                                        "code",
+                                        "message",
+                                        "details"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "saved_above_competitors",
+                                                "saved_not_recommended"
+                                            ]
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Saved. The media still lists above the marketplaces that list the same domain cheaper. Setting the fees at most at the competitive fees in details lists it under them."
+                                        },
+                                        "details": {
+                                            "required": [
+                                                "competitiveFees",
+                                                "competitorCount"
+                                            ],
+                                            "properties": {
+                                                "competitiveFees": {
+                                                    "required": [
+                                                        "feeWhenSellerWritesPost",
+                                                        "feeWhenSellerDoesNotWritePost"
+                                                    ],
+                                                    "properties": {
+                                                        "feeWhenSellerWritesPost": {
+                                                            "required": [
+                                                                "amount",
+                                                                "currency"
+                                                            ],
+                                                            "properties": {
+                                                                "amount": {
+                                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                    "type": "integer",
+                                                                    "example": 12500
+                                                                },
+                                                                "currency": {
+                                                                    "description": "ISO 4217 currency code.",
+                                                                    "type": "string",
+                                                                    "example": "EUR"
+                                                                },
+                                                                "amountDecimal": {
+                                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                    "type": "string",
+                                                                    "readOnly": true,
+                                                                    "example": "125.00"
+                                                                }
+                                                            },
+                                                            "type": [
+                                                                "object",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "feeWhenSellerDoesNotWritePost": {
+                                                            "required": [
+                                                                "amount",
+                                                                "currency"
+                                                            ],
+                                                            "properties": {
+                                                                "amount": {
+                                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                    "type": "integer",
+                                                                    "example": 12500
+                                                                },
+                                                                "currency": {
+                                                                    "description": "ISO 4217 currency code.",
+                                                                    "type": "string",
+                                                                    "example": "EUR"
+                                                                },
+                                                                "amountDecimal": {
+                                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                    "type": "string",
+                                                                    "readOnly": true,
+                                                                    "example": "125.00"
+                                                                }
+                                                            },
+                                                            "type": [
+                                                                "object",
+                                                                "null"
+                                                            ]
+                                                        }
                                                     },
-                                                    "currency": {
-                                                        "description": "ISO 4217 currency code.",
-                                                        "type": "string",
-                                                        "example": "EUR"
-                                                    },
-                                                    "amountDecimal": {
-                                                        "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
-                                                        "type": "string",
-                                                        "readOnly": true,
-                                                        "example": "125.00"
-                                                    }
+                                                    "type": "object"
                                                 },
-                                                "type": [
-                                                    "object",
-                                                    "null"
-                                                ]
-                                            }
-                                        ]
+                                                "competitorCount": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
                                     },
-                                    "feeWhenSellerDoesNotWritePost": {
-                                        "description": "What you are paid for a post the buyer or Growwer writes, or null when you do not offer it.",
-                                        "allOf": [
-                                            {
-                                                "required": [
-                                                    "amount",
-                                                    "currency"
-                                                ],
-                                                "properties": {
-                                                    "amount": {
-                                                        "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                        "type": "integer",
-                                                        "example": 12500
-                                                    },
-                                                    "currency": {
-                                                        "description": "ISO 4217 currency code.",
-                                                        "type": "string",
-                                                        "example": "EUR"
-                                                    },
-                                                    "amountDecimal": {
-                                                        "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
-                                                        "type": "string",
-                                                        "readOnly": true,
-                                                        "example": "125.00"
-                                                    }
-                                                },
-                                                "type": [
-                                                    "object",
-                                                    "null"
-                                                ]
-                                            }
-                                        ]
-                                    }
-                                },
-                                "type": [
-                                    "object",
-                                    "null"
-                                ]
+                                    "type": "object"
+                                }
                             }
-                        ]
-                    },
-                    "createdAt": {
-                        "type": "string"
+                        },
+                        "type": "object"
                     }
-                },
-                "required": [
-                    "id",
-                    "domain",
-                    "url",
-                    "typology",
-                    "state",
-                    "deactivationStrikes",
-                    "country",
-                    "language",
-                    "topics",
-                    "bannedTopics",
-                    "providerComments",
-                    "publicationRate",
-                    "averageDaysToPublication",
-                    "numPublishedOrders",
-                    "onHoliday",
-                    "flashOffer",
-                    "postOffer",
-                    "linkAdditionOffer",
-                    "competitiveFees",
-                    "createdAt"
-                ],
-                "description": "One of your medias, as its seller sees it."
+                ]
             },
             "annotations": {
                 "title": "Apply the suggested competitive fees",
@@ -3520,7 +3729,7 @@
                         "type": "boolean"
                     },
                     "flashOffer": {
-                        "description": "The flash offer running, or null. Its discount is in `currentCost`, never in the fees.",
+                        "description": "The offer running, a time-limited discount, or null. Its discount is in `currentCost`, never in the fees.",
                         "required": [
                             "discountPercent",
                             "endsAt"
@@ -3642,7 +3851,7 @@
                                                     ]
                                                 },
                                                 "currentCost": {
-                                                    "description": "What you are paid now for the link type, flash offer discount included; read-only. Null when the link type has no current pricing.",
+                                                    "description": "What you are paid now for the link type, the discount of a running offer (`flashOffer`) included; read-only. Null when the link type has no current pricing.",
                                                     "allOf": [
                                                         {
                                                             "required": [
@@ -3814,7 +4023,7 @@
                                             ]
                                         },
                                         "currentCost": {
-                                            "description": "What you are paid now for the link type, flash offer discount included; read-only.",
+                                            "description": "What you are paid now for the link type, the discount of a running offer (`flashOffer`) included; read-only.",
                                             "allOf": [
                                                 {
                                                     "required": [
@@ -3857,7 +4066,7 @@
                         ]
                     },
                     "competitiveFees": {
-                        "description": "The post fees Growwer suggests to sell more, as the seller media page does, or null when it suggests none. A side Growwer finds no competitive fee for is null: unlike the page, it never shows the fixed fee the page falls back to. POST /seller/medias/{id}/apply-competitive-fees sets them.",
+                        "description": "The post fees Growwer suggests to sell more, as the seller media pages do, or null when it suggests none: for each side, the highest fee POST /seller/medias/{id}/apply-competitive-fees would set on that side, else null. The apply lowers, per link type, a fee above the highest whole-euro fee that lists the media at least 1 EUR below its cheapest price on the marketplaces Growwer compares with to that fee, and lowers by 1 EUR one fee of a link type that then still does not list the media at least 1 EUR below that price. It never raises a fee. Where it lowers several link types, this is the highest per side across them, so a link type's own new fee can be lower: `competitiveFeesByLinkType` gives the fees the apply sets on each link type.",
                         "allOf": [
                             {
                                 "required": [
@@ -3939,6 +4148,97 @@
                             }
                         ]
                     },
+                    "competitiveFeesByLinkType": {
+                        "description": "The fees POST /seller/medias/{id}/apply-competitive-fees would set, per link type: one entry per link type it lowers, in the order dofollow, nofollow, citation, or null when it suggests none (exactly when `competitiveFees` is null). Per side, the highest of these is `competitiveFees`.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "required": [
+                                "linkType",
+                                "feeWhenSellerWritesPost",
+                                "feeWhenSellerDoesNotWritePost"
+                            ],
+                            "properties": {
+                                "linkType": {
+                                    "type": "string",
+                                    "enum": [
+                                        "dofollow",
+                                        "nofollow",
+                                        "citation"
+                                    ]
+                                },
+                                "feeWhenSellerWritesPost": {
+                                    "description": "The fee the apply sets for a post you write on this link type, or null when it keeps your fee on that side.",
+                                    "allOf": [
+                                        {
+                                            "required": [
+                                                "amount",
+                                                "currency"
+                                            ],
+                                            "properties": {
+                                                "amount": {
+                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "currency": {
+                                                    "description": "ISO 4217 currency code.",
+                                                    "type": "string",
+                                                    "example": "EUR"
+                                                },
+                                                "amountDecimal": {
+                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                    "type": "string",
+                                                    "readOnly": true,
+                                                    "example": "125.00"
+                                                }
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "feeWhenSellerDoesNotWritePost": {
+                                    "description": "The fee the apply sets for a post the buyer or Growwer writes on this link type, or null when it keeps your fee on that side.",
+                                    "allOf": [
+                                        {
+                                            "required": [
+                                                "amount",
+                                                "currency"
+                                            ],
+                                            "properties": {
+                                                "amount": {
+                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "currency": {
+                                                    "description": "ISO 4217 currency code.",
+                                                    "type": "string",
+                                                    "example": "EUR"
+                                                },
+                                                "amountDecimal": {
+                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                    "type": "string",
+                                                    "readOnly": true,
+                                                    "example": "125.00"
+                                                }
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
                     "createdAt": {
                         "type": "string"
                     }
@@ -3963,6 +4263,7 @@
                     "postOffer",
                     "linkAdditionOffer",
                     "competitiveFees",
+                    "competitiveFeesByLinkType",
                     "createdAt"
                 ],
                 "description": "One of your medias, as its seller sees it."
@@ -7198,7 +7499,7 @@
                         "type": "boolean"
                     },
                     "flashOffer": {
-                        "description": "The flash offer running, or null. Its discount is already in the prices.",
+                        "description": "The offer running, a time-limited discount, or null. Its discount is already in the prices.",
                         "required": [
                             "discountPercent",
                             "endsAt"
@@ -7208,6 +7509,36 @@
                                 "type": "integer"
                             },
                             "endsAt": {
+                                "type": "string"
+                            }
+                        },
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "bestPrice": {
+                        "description": "The best-price badge the catalogue shows, or null for none: cheaper means the price is at least 1 EUR below the cheapest listing of the media found on the other platforms checked in the last 7 days; only_here means none of the platforms checked lists it. It names neither the platforms nor any price.",
+                        "required": [
+                            "badge",
+                            "platformCount",
+                            "checkedOn"
+                        ],
+                        "properties": {
+                            "badge": {
+                                "type": "string",
+                                "enum": [
+                                    "cheaper",
+                                    "only_here"
+                                ]
+                            },
+                            "platformCount": {
+                                "description": "How many platforms the claim was checked against.",
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "checkedOn": {
+                                "description": "The day of that check.",
                                 "type": "string"
                             }
                         },
@@ -7227,7 +7558,7 @@
                                 ],
                                 "properties": {
                                     "price": {
-                                        "description": "What you pay for the offer with its dearest link type, flash offer discount included.",
+                                        "description": "What you pay for the offer with its dearest link type, the discount of a running offer (`flashOffer`) included.",
                                         "allOf": [
                                             {
                                                 "required": [
@@ -7465,7 +7796,7 @@
                                 ],
                                 "properties": {
                                     "price": {
-                                        "description": "What you pay for the offer with its dearest link type, flash offer discount included.",
+                                        "description": "What you pay for the offer with its dearest link type, the discount of a running offer (`flashOffer`) included.",
                                         "allOf": [
                                             {
                                                 "required": [
@@ -7592,6 +7923,7 @@
                     "averageDaysToPublication",
                     "onHoliday",
                     "flashOffer",
+                    "bestPrice",
                     "postOffer",
                     "linkAdditionOffer"
                 ]
@@ -8212,7 +8544,7 @@
                         ],
                         "properties": {
                             "eligible": {
-                                "description": "Whether you have the full daily cap of the catalogue operations (tag Catalogue: searching a project's medias, flash offers and media details). It is open to accounts with recent completed orders, as buyer or as seller; until then the catalogue answers within a smaller daily trial quota, which rises to the full cap after a completed order. A media you have ordered is always readable with GET /medias/{id} and counts against neither.",
+                                "description": "Whether you have the full daily cap of the catalogue operations (tag Catalogue: searching a project's medias, those on offer and media details). It is open to accounts with recent completed orders, as buyer or as seller; until then the catalogue answers within a smaller daily trial quota, which rises to the full cap after a completed order. A media you have ordered is always readable with GET /medias/{id} and counts against neither.",
                                 "type": "boolean"
                             },
                             "dailyCap": {
@@ -8798,7 +9130,7 @@
         {
             "name": "growwer_get_seller_media",
             "title": "Get a media you sell on",
-            "description": "Use this when you need one of the user's seller medias in full: its fees, extras, the competitive fees Growwer suggests and its performance.",
+            "description": "Use this when you need one of the user's seller medias in full: its fees, extras, the competitive fees Growwer suggests, per side and per link type, and its performance.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -8898,7 +9230,7 @@
                         "type": "boolean"
                     },
                     "flashOffer": {
-                        "description": "The flash offer running, or null. Its discount is in `currentCost`, never in the fees.",
+                        "description": "The offer running, a time-limited discount, or null. Its discount is in `currentCost`, never in the fees.",
                         "required": [
                             "discountPercent",
                             "endsAt"
@@ -9020,7 +9352,7 @@
                                                     ]
                                                 },
                                                 "currentCost": {
-                                                    "description": "What you are paid now for the link type, flash offer discount included; read-only. Null when the link type has no current pricing.",
+                                                    "description": "What you are paid now for the link type, the discount of a running offer (`flashOffer`) included; read-only. Null when the link type has no current pricing.",
                                                     "allOf": [
                                                         {
                                                             "required": [
@@ -9192,7 +9524,7 @@
                                             ]
                                         },
                                         "currentCost": {
-                                            "description": "What you are paid now for the link type, flash offer discount included; read-only.",
+                                            "description": "What you are paid now for the link type, the discount of a running offer (`flashOffer`) included; read-only.",
                                             "allOf": [
                                                 {
                                                     "required": [
@@ -9235,7 +9567,7 @@
                         ]
                     },
                     "competitiveFees": {
-                        "description": "The post fees Growwer suggests to sell more, as the seller media page does, or null when it suggests none. A side Growwer finds no competitive fee for is null: unlike the page, it never shows the fixed fee the page falls back to. POST /seller/medias/{id}/apply-competitive-fees sets them.",
+                        "description": "The post fees Growwer suggests to sell more, as the seller media pages do, or null when it suggests none: for each side, the highest fee POST /seller/medias/{id}/apply-competitive-fees would set on that side, else null. The apply lowers, per link type, a fee above the highest whole-euro fee that lists the media at least 1 EUR below its cheapest price on the marketplaces Growwer compares with to that fee, and lowers by 1 EUR one fee of a link type that then still does not list the media at least 1 EUR below that price. It never raises a fee. Where it lowers several link types, this is the highest per side across them, so a link type's own new fee can be lower: `competitiveFeesByLinkType` gives the fees the apply sets on each link type.",
                         "allOf": [
                             {
                                 "required": [
@@ -9317,6 +9649,97 @@
                             }
                         ]
                     },
+                    "competitiveFeesByLinkType": {
+                        "description": "The fees POST /seller/medias/{id}/apply-competitive-fees would set, per link type: one entry per link type it lowers, in the order dofollow, nofollow, citation, or null when it suggests none (exactly when `competitiveFees` is null). Per side, the highest of these is `competitiveFees`.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "required": [
+                                "linkType",
+                                "feeWhenSellerWritesPost",
+                                "feeWhenSellerDoesNotWritePost"
+                            ],
+                            "properties": {
+                                "linkType": {
+                                    "type": "string",
+                                    "enum": [
+                                        "dofollow",
+                                        "nofollow",
+                                        "citation"
+                                    ]
+                                },
+                                "feeWhenSellerWritesPost": {
+                                    "description": "The fee the apply sets for a post you write on this link type, or null when it keeps your fee on that side.",
+                                    "allOf": [
+                                        {
+                                            "required": [
+                                                "amount",
+                                                "currency"
+                                            ],
+                                            "properties": {
+                                                "amount": {
+                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "currency": {
+                                                    "description": "ISO 4217 currency code.",
+                                                    "type": "string",
+                                                    "example": "EUR"
+                                                },
+                                                "amountDecimal": {
+                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                    "type": "string",
+                                                    "readOnly": true,
+                                                    "example": "125.00"
+                                                }
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "feeWhenSellerDoesNotWritePost": {
+                                    "description": "The fee the apply sets for a post the buyer or Growwer writes on this link type, or null when it keeps your fee on that side.",
+                                    "allOf": [
+                                        {
+                                            "required": [
+                                                "amount",
+                                                "currency"
+                                            ],
+                                            "properties": {
+                                                "amount": {
+                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                    "type": "integer",
+                                                    "example": 12500
+                                                },
+                                                "currency": {
+                                                    "description": "ISO 4217 currency code.",
+                                                    "type": "string",
+                                                    "example": "EUR"
+                                                },
+                                                "amountDecimal": {
+                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                    "type": "string",
+                                                    "readOnly": true,
+                                                    "example": "125.00"
+                                                }
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
                     "createdAt": {
                         "type": "string"
                     }
@@ -9341,6 +9764,7 @@
                     "postOffer",
                     "linkAdditionOffer",
                     "competitiveFees",
+                    "competitiveFeesByLinkType",
                     "createdAt"
                 ],
                 "description": "One of your medias, as its seller sees it."
@@ -10298,14 +10722,14 @@
         },
         {
             "name": "growwer_list_flash_offers",
-            "title": "List flash offers",
-            "description": "Use this when the user looks for discounted medias: lists the medias on a time-limited flash offer in the catalogue of one of their projects.",
+            "title": "List the medias on offer",
+            "description": "Use this when the user looks for discounted medias: lists the medias on a time-limited offer in the catalogue of one of their projects.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "projectId": {
                         "type": "string",
-                        "description": "The project to search flash offers for."
+                        "description": "The project to search medias on offer for."
                     },
                     "source": {
                         "type": "string",
@@ -10426,6 +10850,10 @@
                         "type": "string",
                         "description": "A comma-separated list of link types the link addition offer gives: `dofollow`, `nofollow`, `citation`."
                     },
+                    "bestPrice": {
+                        "type": "boolean",
+                        "description": "Medias with a best-price badge (`bestPrice` not null), of either claim. Only `true` applies it; omit it otherwise."
+                    },
                     "recommended": {
                         "type": "boolean",
                         "description": "`true`: only the medias Growwer recommends for the project; `false`: only the others."
@@ -10500,6 +10928,7 @@
                                         "averageDaysToPublication",
                                         "onHoliday",
                                         "flashOffer",
+                                        "bestPrice",
                                         "postOffer",
                                         "linkAdditionOffer"
                                     ],
@@ -10605,7 +11034,7 @@
                                             "type": "boolean"
                                         },
                                         "flashOffer": {
-                                            "description": "The flash offer running, or null. Its discount is already in the prices.",
+                                            "description": "The offer running, a time-limited discount, or null. Its discount is already in the prices.",
                                             "required": [
                                                 "discountPercent",
                                                 "endsAt"
@@ -10615,6 +11044,36 @@
                                                     "type": "integer"
                                                 },
                                                 "endsAt": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ]
+                                        },
+                                        "bestPrice": {
+                                            "description": "The best-price badge the catalogue shows, or null for none: cheaper means the price is at least 1 EUR below the cheapest listing of the media found on the other platforms checked in the last 7 days; only_here means none of the platforms checked lists it. It names neither the platforms nor any price.",
+                                            "required": [
+                                                "badge",
+                                                "platformCount",
+                                                "checkedOn"
+                                            ],
+                                            "properties": {
+                                                "badge": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "cheaper",
+                                                        "only_here"
+                                                    ]
+                                                },
+                                                "platformCount": {
+                                                    "description": "How many platforms the claim was checked against.",
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "checkedOn": {
+                                                    "description": "The day of that check.",
                                                     "type": "string"
                                                 }
                                             },
@@ -10634,7 +11093,7 @@
                                                     ],
                                                     "properties": {
                                                         "price": {
-                                                            "description": "What you pay for the offer with its dearest link type, flash offer discount included.",
+                                                            "description": "What you pay for the offer with its dearest link type, the discount of a running offer (`flashOffer`) included.",
                                                             "allOf": [
                                                                 {
                                                                     "required": [
@@ -10872,7 +11331,7 @@
                                                     ],
                                                     "properties": {
                                                         "price": {
-                                                            "description": "What you pay for the offer with its dearest link type, flash offer discount included.",
+                                                            "description": "What you pay for the offer with its dearest link type, the discount of a running offer (`flashOffer`) included.",
                                                             "allOf": [
                                                                 {
                                                                     "required": [
@@ -11073,7 +11532,7 @@
                 ]
             },
             "annotations": {
-                "title": "List flash offers",
+                "title": "List the medias on offer",
                 "readOnlyHint": true,
                 "destructiveHint": false,
                 "idempotentHint": true,
@@ -12463,6 +12922,7 @@
                                 "postOffer",
                                 "linkAdditionOffer",
                                 "competitiveFees",
+                                "competitiveFeesByLinkType",
                                 "createdAt"
                             ],
                             "properties": {
@@ -12550,7 +13010,7 @@
                                     "type": "boolean"
                                 },
                                 "flashOffer": {
-                                    "description": "The flash offer running, or null. Its discount is in `currentCost`, never in the fees.",
+                                    "description": "The offer running, a time-limited discount, or null. Its discount is in `currentCost`, never in the fees.",
                                     "required": [
                                         "discountPercent",
                                         "endsAt"
@@ -12672,7 +13132,7 @@
                                                                 ]
                                                             },
                                                             "currentCost": {
-                                                                "description": "What you are paid now for the link type, flash offer discount included; read-only. Null when the link type has no current pricing.",
+                                                                "description": "What you are paid now for the link type, the discount of a running offer (`flashOffer`) included; read-only. Null when the link type has no current pricing.",
                                                                 "allOf": [
                                                                     {
                                                                         "required": [
@@ -12844,7 +13304,7 @@
                                                         ]
                                                     },
                                                     "currentCost": {
-                                                        "description": "What you are paid now for the link type, flash offer discount included; read-only.",
+                                                        "description": "What you are paid now for the link type, the discount of a running offer (`flashOffer`) included; read-only.",
                                                         "allOf": [
                                                             {
                                                                 "required": [
@@ -12887,7 +13347,7 @@
                                     ]
                                 },
                                 "competitiveFees": {
-                                    "description": "The post fees Growwer suggests to sell more, as the seller media page does, or null when it suggests none. A side Growwer finds no competitive fee for is null: unlike the page, it never shows the fixed fee the page falls back to. POST /seller/medias/{id}/apply-competitive-fees sets them.",
+                                    "description": "The post fees Growwer suggests to sell more, as the seller media pages do, or null when it suggests none: for each side, the highest fee POST /seller/medias/{id}/apply-competitive-fees would set on that side, else null. The apply lowers, per link type, a fee above the highest whole-euro fee that lists the media at least 1 EUR below its cheapest price on the marketplaces Growwer compares with to that fee, and lowers by 1 EUR one fee of a link type that then still does not list the media at least 1 EUR below that price. It never raises a fee. Where it lowers several link types, this is the highest per side across them, so a link type's own new fee can be lower: `competitiveFeesByLinkType` gives the fees the apply sets on each link type.",
                                     "allOf": [
                                         {
                                             "required": [
@@ -12968,6 +13428,97 @@
                                             ]
                                         }
                                     ]
+                                },
+                                "competitiveFeesByLinkType": {
+                                    "description": "The fees POST /seller/medias/{id}/apply-competitive-fees would set, per link type: one entry per link type it lowers, in the order dofollow, nofollow, citation, or null when it suggests none (exactly when `competitiveFees` is null). Per side, the highest of these is `competitiveFees`.",
+                                    "type": [
+                                        "array",
+                                        "null"
+                                    ],
+                                    "items": {
+                                        "required": [
+                                            "linkType",
+                                            "feeWhenSellerWritesPost",
+                                            "feeWhenSellerDoesNotWritePost"
+                                        ],
+                                        "properties": {
+                                            "linkType": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "dofollow",
+                                                    "nofollow",
+                                                    "citation"
+                                                ]
+                                            },
+                                            "feeWhenSellerWritesPost": {
+                                                "description": "The fee the apply sets for a post you write on this link type, or null when it keeps your fee on that side.",
+                                                "allOf": [
+                                                    {
+                                                        "required": [
+                                                            "amount",
+                                                            "currency"
+                                                        ],
+                                                        "properties": {
+                                                            "amount": {
+                                                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                "type": "integer",
+                                                                "example": 12500
+                                                            },
+                                                            "currency": {
+                                                                "description": "ISO 4217 currency code.",
+                                                                "type": "string",
+                                                                "example": "EUR"
+                                                            },
+                                                            "amountDecimal": {
+                                                                "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                "type": "string",
+                                                                "readOnly": true,
+                                                                "example": "125.00"
+                                                            }
+                                                        },
+                                                        "type": [
+                                                            "object",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            "feeWhenSellerDoesNotWritePost": {
+                                                "description": "The fee the apply sets for a post the buyer or Growwer writes on this link type, or null when it keeps your fee on that side.",
+                                                "allOf": [
+                                                    {
+                                                        "required": [
+                                                            "amount",
+                                                            "currency"
+                                                        ],
+                                                        "properties": {
+                                                            "amount": {
+                                                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                "type": "integer",
+                                                                "example": 12500
+                                                            },
+                                                            "currency": {
+                                                                "description": "ISO 4217 currency code.",
+                                                                "type": "string",
+                                                                "example": "EUR"
+                                                            },
+                                                            "amountDecimal": {
+                                                                "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                "type": "string",
+                                                                "readOnly": true,
+                                                                "example": "125.00"
+                                                            }
+                                                        },
+                                                        "type": [
+                                                            "object",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
                                 },
                                 "createdAt": {
                                     "type": "string"
@@ -17397,7 +17948,7 @@
         {
             "name": "growwer_search_project_medias",
             "title": "Search the catalogue for a project",
-            "description": "Use this when the user wants media to publish on for one of their projects: searches the catalogue with filters on price, metrics, topics, languages, countries and more, and answers each media with its state in the project.",
+            "description": "Use this when the user wants media to publish on for one of their projects: searches the catalogue with filters on price, metrics, topics, languages, countries, the best-price badge (bestPrice) and more, and answers each media with its state in the project.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -17528,6 +18079,10 @@
                         "type": "string",
                         "description": "A comma-separated list of link types the link addition offer gives: `dofollow`, `nofollow`, `citation`."
                     },
+                    "bestPrice": {
+                        "type": "boolean",
+                        "description": "Medias with a best-price badge (`bestPrice` not null), of either claim. Only `true` applies it; omit it otherwise."
+                    },
                     "recommended": {
                         "type": "boolean",
                         "description": "`true`: only the medias Growwer recommends for the project; `false`: only the others."
@@ -17542,7 +18097,7 @@
                     },
                     "flashOffer": {
                         "type": "boolean",
-                        "description": "`true`: only medias with a flash offer running; `false`: leave them out."
+                        "description": "`true`: only medias with an offer running; `false`: leave them out."
                     },
                     "bought": {
                         "type": "boolean",
@@ -17606,6 +18161,7 @@
                                         "averageDaysToPublication",
                                         "onHoliday",
                                         "flashOffer",
+                                        "bestPrice",
                                         "postOffer",
                                         "linkAdditionOffer"
                                     ],
@@ -17711,7 +18267,7 @@
                                             "type": "boolean"
                                         },
                                         "flashOffer": {
-                                            "description": "The flash offer running, or null. Its discount is already in the prices.",
+                                            "description": "The offer running, a time-limited discount, or null. Its discount is already in the prices.",
                                             "required": [
                                                 "discountPercent",
                                                 "endsAt"
@@ -17721,6 +18277,36 @@
                                                     "type": "integer"
                                                 },
                                                 "endsAt": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ]
+                                        },
+                                        "bestPrice": {
+                                            "description": "The best-price badge the catalogue shows, or null for none: cheaper means the price is at least 1 EUR below the cheapest listing of the media found on the other platforms checked in the last 7 days; only_here means none of the platforms checked lists it. It names neither the platforms nor any price.",
+                                            "required": [
+                                                "badge",
+                                                "platformCount",
+                                                "checkedOn"
+                                            ],
+                                            "properties": {
+                                                "badge": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "cheaper",
+                                                        "only_here"
+                                                    ]
+                                                },
+                                                "platformCount": {
+                                                    "description": "How many platforms the claim was checked against.",
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "checkedOn": {
+                                                    "description": "The day of that check.",
                                                     "type": "string"
                                                 }
                                             },
@@ -17740,7 +18326,7 @@
                                                     ],
                                                     "properties": {
                                                         "price": {
-                                                            "description": "What you pay for the offer with its dearest link type, flash offer discount included.",
+                                                            "description": "What you pay for the offer with its dearest link type, the discount of a running offer (`flashOffer`) included.",
                                                             "allOf": [
                                                                 {
                                                                     "required": [
@@ -17978,7 +18564,7 @@
                                                     ],
                                                     "properties": {
                                                         "price": {
-                                                            "description": "What you pay for the offer with its dearest link type, flash offer discount included.",
+                                                            "description": "What you pay for the offer with its dearest link type, the discount of a running offer (`flashOffer`) included.",
                                                             "allOf": [
                                                                 {
                                                                     "required": [
@@ -18578,7 +19164,7 @@
         {
             "name": "growwer_update_seller_media",
             "title": "Edit the offer of a media",
-            "description": "Use this when a seller wants to change the fees, extra services, typology or post offer of one of their medias: replaces each field sent and keeps the rest.",
+            "description": "Use this when a seller wants to change the fees, extra services, typology or post offer of one of their medias: replaces each field sent and keeps the rest. The fees are always saved, a raise included; when they list the media above the marketplaces that list the same domain cheaper and some fee would list it under them, warnings holds saved_above_competitors, or saved_not_recommended when the edit raised a fee or added a side or link type: the media is then not recommended in buyers' projects while it lists above them.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -18796,164 +19382,323 @@
             },
             "outputSchema": {
                 "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string"
-                    },
-                    "domain": {
-                        "type": "string",
-                        "example": "example.com"
-                    },
-                    "url": {
-                        "description": "The media's root URL.",
-                        "type": "string"
-                    },
-                    "typology": {
-                        "type": "string",
-                        "enum": [
-                            "blog",
-                            "press"
-                        ]
-                    },
-                    "state": {
-                        "type": "string",
-                        "enum": [
-                            "analyzing",
-                            "pending_review",
-                            "active",
-                            "deactivated"
-                        ]
-                    },
-                    "deactivationStrikes": {
-                        "description": "How many times the media was deactivated for not publishing.",
-                        "type": "integer"
-                    },
-                    "country": {
-                        "description": "A country code, as in GET /vocabulary, or null for none.",
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "language": {
-                        "description": "A language code, as in GET /vocabulary.",
-                        "type": "string"
-                    },
-                    "topics": {
-                        "description": "Topic ids, as in GET /vocabulary.",
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    },
-                    "bannedTopics": {
-                        "description": "The topic ids the media refuses, as in GET /vocabulary.",
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    },
-                    "providerComments": {
-                        "description": "Your notes for buyers, or null for none.",
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "publicationRate": {
-                        "description": "The share of the media's orders that were published, in percent, or null without orders.",
-                        "type": [
-                            "integer",
-                            "null"
-                        ]
-                    },
-                    "averageDaysToPublication": {
-                        "description": "The average days from order to publication, or null without published orders.",
-                        "type": [
-                            "integer",
-                            "null"
-                        ]
-                    },
-                    "numPublishedOrders": {
-                        "type": "integer"
-                    },
-                    "onHoliday": {
-                        "type": "boolean"
-                    },
-                    "flashOffer": {
-                        "description": "The flash offer running, or null. Its discount is in `currentCost`, never in the fees.",
+                "description": "A media you sell on as a write answers it (PATCH /seller/medias/{id} and POST /seller/medias/{id}/apply-competitive-fees), with the warnings about the save. GET and the list answer SellerMedia, without them.",
+                "allOf": [
+                    {
+                        "description": "One of your medias, as its seller sees it.",
                         "required": [
-                            "discountPercent",
-                            "endsAt"
+                            "id",
+                            "domain",
+                            "url",
+                            "typology",
+                            "state",
+                            "deactivationStrikes",
+                            "country",
+                            "language",
+                            "topics",
+                            "bannedTopics",
+                            "providerComments",
+                            "publicationRate",
+                            "averageDaysToPublication",
+                            "numPublishedOrders",
+                            "onHoliday",
+                            "flashOffer",
+                            "postOffer",
+                            "linkAdditionOffer",
+                            "competitiveFees",
+                            "competitiveFeesByLinkType",
+                            "createdAt"
                         ],
                         "properties": {
-                            "discountPercent": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "domain": {
+                                "type": "string",
+                                "example": "example.com"
+                            },
+                            "url": {
+                                "description": "The media's root URL.",
+                                "type": "string"
+                            },
+                            "typology": {
+                                "type": "string",
+                                "enum": [
+                                    "blog",
+                                    "press"
+                                ]
+                            },
+                            "state": {
+                                "type": "string",
+                                "enum": [
+                                    "analyzing",
+                                    "pending_review",
+                                    "active",
+                                    "deactivated"
+                                ]
+                            },
+                            "deactivationStrikes": {
+                                "description": "How many times the media was deactivated for not publishing.",
                                 "type": "integer"
                             },
-                            "endsAt": {
+                            "country": {
+                                "description": "A country code, as in GET /vocabulary, or null for none.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "language": {
+                                "description": "A language code, as in GET /vocabulary.",
                                 "type": "string"
-                            }
-                        },
-                        "type": [
-                            "object",
-                            "null"
-                        ]
-                    },
-                    "postOffer": {
-                        "required": [
-                            "pricingOptions",
-                            "maximumLinks",
-                            "advertisingLabellingPolicy",
-                            "promotedSocialNetworks",
-                            "extraServices"
-                        ],
-                        "properties": {
-                            "pricingOptions": {
-                                "description": "One entry per link type you offer.",
+                            },
+                            "topics": {
+                                "description": "Topic ids, as in GET /vocabulary.",
                                 "type": "array",
                                 "items": {
-                                    "allOf": [
-                                        {
-                                            "required": [
-                                                "feeWhenSellerWritesPost",
-                                                "feeWhenSellerDoesNotWritePost"
-                                            ],
-                                            "properties": {
-                                                "feeWhenSellerWritesPost": {
-                                                    "description": "What you are paid for a post you write, or null when you do not offer it.",
-                                                    "allOf": [
-                                                        {
-                                                            "required": [
-                                                                "amount",
-                                                                "currency"
-                                                            ],
-                                                            "properties": {
-                                                                "amount": {
-                                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                                    "type": "integer",
-                                                                    "example": 12500
-                                                                },
-                                                                "currency": {
-                                                                    "description": "ISO 4217 currency code.",
-                                                                    "type": "string",
-                                                                    "example": "EUR"
-                                                                },
-                                                                "amountDecimal": {
-                                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
-                                                                    "type": "string",
-                                                                    "readOnly": true,
-                                                                    "example": "125.00"
+                                    "type": "integer"
+                                }
+                            },
+                            "bannedTopics": {
+                                "description": "The topic ids the media refuses, as in GET /vocabulary.",
+                                "type": "array",
+                                "items": {
+                                    "type": "integer"
+                                }
+                            },
+                            "providerComments": {
+                                "description": "Your notes for buyers, or null for none.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "publicationRate": {
+                                "description": "The share of the media's orders that were published, in percent, or null without orders.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "averageDaysToPublication": {
+                                "description": "The average days from order to publication, or null without published orders.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "numPublishedOrders": {
+                                "type": "integer"
+                            },
+                            "onHoliday": {
+                                "type": "boolean"
+                            },
+                            "flashOffer": {
+                                "description": "The offer running, a time-limited discount, or null. Its discount is in `currentCost`, never in the fees.",
+                                "required": [
+                                    "discountPercent",
+                                    "endsAt"
+                                ],
+                                "properties": {
+                                    "discountPercent": {
+                                        "type": "integer"
+                                    },
+                                    "endsAt": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": [
+                                    "object",
+                                    "null"
+                                ]
+                            },
+                            "postOffer": {
+                                "required": [
+                                    "pricingOptions",
+                                    "maximumLinks",
+                                    "advertisingLabellingPolicy",
+                                    "promotedSocialNetworks",
+                                    "extraServices"
+                                ],
+                                "properties": {
+                                    "pricingOptions": {
+                                        "description": "One entry per link type you offer.",
+                                        "type": "array",
+                                        "items": {
+                                            "allOf": [
+                                                {
+                                                    "required": [
+                                                        "feeWhenSellerWritesPost",
+                                                        "feeWhenSellerDoesNotWritePost"
+                                                    ],
+                                                    "properties": {
+                                                        "feeWhenSellerWritesPost": {
+                                                            "description": "What you are paid for a post you write, or null when you do not offer it.",
+                                                            "allOf": [
+                                                                {
+                                                                    "required": [
+                                                                        "amount",
+                                                                        "currency"
+                                                                    ],
+                                                                    "properties": {
+                                                                        "amount": {
+                                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                            "type": "integer",
+                                                                            "example": 12500
+                                                                        },
+                                                                        "currency": {
+                                                                            "description": "ISO 4217 currency code.",
+                                                                            "type": "string",
+                                                                            "example": "EUR"
+                                                                        },
+                                                                        "amountDecimal": {
+                                                                            "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                            "type": "string",
+                                                                            "readOnly": true,
+                                                                            "example": "125.00"
+                                                                        }
+                                                                    },
+                                                                    "type": [
+                                                                        "object",
+                                                                        "null"
+                                                                    ]
                                                                 }
-                                                            },
-                                                            "type": [
-                                                                "object",
-                                                                "null"
+                                                            ]
+                                                        },
+                                                        "feeWhenSellerDoesNotWritePost": {
+                                                            "description": "What you are paid for a post the buyer or Growwer writes, or null when you do not offer it.",
+                                                            "allOf": [
+                                                                {
+                                                                    "required": [
+                                                                        "amount",
+                                                                        "currency"
+                                                                    ],
+                                                                    "properties": {
+                                                                        "amount": {
+                                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                            "type": "integer",
+                                                                            "example": 12500
+                                                                        },
+                                                                        "currency": {
+                                                                            "description": "ISO 4217 currency code.",
+                                                                            "type": "string",
+                                                                            "example": "EUR"
+                                                                        },
+                                                                        "amountDecimal": {
+                                                                            "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                            "type": "string",
+                                                                            "readOnly": true,
+                                                                            "example": "125.00"
+                                                                        }
+                                                                    },
+                                                                    "type": [
+                                                                        "object",
+                                                                        "null"
+                                                                    ]
+                                                                }
                                                             ]
                                                         }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                {
+                                                    "required": [
+                                                        "linkType",
+                                                        "currentCost"
+                                                    ],
+                                                    "properties": {
+                                                        "linkType": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "dofollow",
+                                                                "nofollow",
+                                                                "citation"
+                                                            ]
+                                                        },
+                                                        "currentCost": {
+                                                            "description": "What you are paid now for the link type, the discount of a running offer (`flashOffer`) included; read-only. Null when the link type has no current pricing.",
+                                                            "allOf": [
+                                                                {
+                                                                    "required": [
+                                                                        "amount",
+                                                                        "currency"
+                                                                    ],
+                                                                    "properties": {
+                                                                        "amount": {
+                                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                            "type": "integer",
+                                                                            "example": 12500
+                                                                        },
+                                                                        "currency": {
+                                                                            "description": "ISO 4217 currency code.",
+                                                                            "type": "string",
+                                                                            "example": "EUR"
+                                                                        },
+                                                                        "amountDecimal": {
+                                                                            "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                            "type": "string",
+                                                                            "readOnly": true,
+                                                                            "example": "125.00"
+                                                                        }
+                                                                    },
+                                                                    "type": [
+                                                                        "object",
+                                                                        "null"
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "maximumLinks": {
+                                        "description": "How many links a sponsored post may hold, 1 to 4.",
+                                        "type": "integer"
+                                    },
+                                    "advertisingLabellingPolicy": {
+                                        "description": "Whether sponsored posts are labelled as advertising.",
+                                        "type": "string",
+                                        "enum": [
+                                            "always",
+                                            "never"
+                                        ]
+                                    },
+                                    "promotedSocialNetworks": {
+                                        "description": "The social networks sponsored posts are promoted on.",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": [
+                                                "twitter",
+                                                "instagram",
+                                                "facebook",
+                                                "pinterest",
+                                                "tumblr",
+                                                "newsletter"
+                                            ]
+                                        }
+                                    },
+                                    "extraServices": {
+                                        "description": "Read here, but PATCH /seller/medias/{id} and POST /seller/medias take it at the top level of the body.",
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "name",
+                                                "cost"
+                                            ],
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "list_on_homepage",
+                                                        "extra_charge_for_sensitive_topic"
                                                     ]
                                                 },
-                                                "feeWhenSellerDoesNotWritePost": {
-                                                    "description": "What you are paid for a post the buyer or Growwer writes, or null when you do not offer it.",
+                                                "cost": {
+                                                    "description": "What you are paid for the extra service.",
                                                     "allOf": [
                                                         {
                                                             "required": [
@@ -18978,19 +19723,29 @@
                                                                     "example": "125.00"
                                                                 }
                                                             },
-                                                            "type": [
-                                                                "object",
-                                                                "null"
-                                                            ]
+                                                            "type": "object"
                                                         }
                                                     ]
                                                 }
                                             },
                                             "type": "object"
-                                        },
-                                        {
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "linkAdditionOffer": {
+                                "description": "Adding a link to an existing article, or null when you do not offer it.",
+                                "required": [
+                                    "pricingOptions"
+                                ],
+                                "properties": {
+                                    "pricingOptions": {
+                                        "type": "array",
+                                        "items": {
                                             "required": [
                                                 "linkType",
+                                                "fee",
                                                 "currentCost"
                                             ],
                                             "properties": {
@@ -19002,8 +19757,38 @@
                                                         "citation"
                                                     ]
                                                 },
+                                                "fee": {
+                                                    "description": "Your base fee for the link type.",
+                                                    "allOf": [
+                                                        {
+                                                            "required": [
+                                                                "amount",
+                                                                "currency"
+                                                            ],
+                                                            "properties": {
+                                                                "amount": {
+                                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                    "type": "integer",
+                                                                    "example": 12500
+                                                                },
+                                                                "currency": {
+                                                                    "description": "ISO 4217 currency code.",
+                                                                    "type": "string",
+                                                                    "example": "EUR"
+                                                                },
+                                                                "amountDecimal": {
+                                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                    "type": "string",
+                                                                    "readOnly": true,
+                                                                    "example": "125.00"
+                                                                }
+                                                            },
+                                                            "type": "object"
+                                                        }
+                                                    ]
+                                                },
                                                 "currentCost": {
-                                                    "description": "What you are paid now for the link type, flash offer discount included; read-only. Null when the link type has no current pricing.",
+                                                    "description": "What you are paid now for the link type, the discount of a running offer (`flashOffer`) included; read-only.",
                                                     "allOf": [
                                                         {
                                                             "required": [
@@ -19038,102 +19823,107 @@
                                             },
                                             "type": "object"
                                         }
-                                    ]
-                                }
-                            },
-                            "maximumLinks": {
-                                "description": "How many links a sponsored post may hold, 1 to 4.",
-                                "type": "integer"
-                            },
-                            "advertisingLabellingPolicy": {
-                                "description": "Whether sponsored posts are labelled as advertising.",
-                                "type": "string",
-                                "enum": [
-                                    "always",
-                                    "never"
+                                    }
+                                },
+                                "type": [
+                                    "object",
+                                    "null"
                                 ]
                             },
-                            "promotedSocialNetworks": {
-                                "description": "The social networks sponsored posts are promoted on.",
-                                "type": "array",
-                                "items": {
-                                    "type": "string",
-                                    "enum": [
-                                        "twitter",
-                                        "instagram",
-                                        "facebook",
-                                        "pinterest",
-                                        "tumblr",
-                                        "newsletter"
-                                    ]
-                                }
-                            },
-                            "extraServices": {
-                                "description": "Read here, but PATCH /seller/medias/{id} and POST /seller/medias take it at the top level of the body.",
-                                "type": "array",
-                                "items": {
-                                    "required": [
-                                        "name",
-                                        "cost"
-                                    ],
-                                    "properties": {
-                                        "name": {
-                                            "type": "string",
-                                            "enum": [
-                                                "list_on_homepage",
-                                                "extra_charge_for_sensitive_topic"
-                                            ]
+                            "competitiveFees": {
+                                "description": "The post fees Growwer suggests to sell more, as the seller media pages do, or null when it suggests none: for each side, the highest fee POST /seller/medias/{id}/apply-competitive-fees would set on that side, else null. The apply lowers, per link type, a fee above the highest whole-euro fee that lists the media at least 1 EUR below its cheapest price on the marketplaces Growwer compares with to that fee, and lowers by 1 EUR one fee of a link type that then still does not list the media at least 1 EUR below that price. It never raises a fee. Where it lowers several link types, this is the highest per side across them, so a link type's own new fee can be lower: `competitiveFeesByLinkType` gives the fees the apply sets on each link type.",
+                                "allOf": [
+                                    {
+                                        "required": [
+                                            "feeWhenSellerWritesPost",
+                                            "feeWhenSellerDoesNotWritePost"
+                                        ],
+                                        "properties": {
+                                            "feeWhenSellerWritesPost": {
+                                                "description": "What you are paid for a post you write, or null when you do not offer it.",
+                                                "allOf": [
+                                                    {
+                                                        "required": [
+                                                            "amount",
+                                                            "currency"
+                                                        ],
+                                                        "properties": {
+                                                            "amount": {
+                                                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                "type": "integer",
+                                                                "example": 12500
+                                                            },
+                                                            "currency": {
+                                                                "description": "ISO 4217 currency code.",
+                                                                "type": "string",
+                                                                "example": "EUR"
+                                                            },
+                                                            "amountDecimal": {
+                                                                "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                "type": "string",
+                                                                "readOnly": true,
+                                                                "example": "125.00"
+                                                            }
+                                                        },
+                                                        "type": [
+                                                            "object",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            "feeWhenSellerDoesNotWritePost": {
+                                                "description": "What you are paid for a post the buyer or Growwer writes, or null when you do not offer it.",
+                                                "allOf": [
+                                                    {
+                                                        "required": [
+                                                            "amount",
+                                                            "currency"
+                                                        ],
+                                                        "properties": {
+                                                            "amount": {
+                                                                "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                "type": "integer",
+                                                                "example": 12500
+                                                            },
+                                                            "currency": {
+                                                                "description": "ISO 4217 currency code.",
+                                                                "type": "string",
+                                                                "example": "EUR"
+                                                            },
+                                                            "amountDecimal": {
+                                                                "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                "type": "string",
+                                                                "readOnly": true,
+                                                                "example": "125.00"
+                                                            }
+                                                        },
+                                                        "type": [
+                                                            "object",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                ]
+                                            }
                                         },
-                                        "cost": {
-                                            "description": "What you are paid for the extra service.",
-                                            "allOf": [
-                                                {
-                                                    "required": [
-                                                        "amount",
-                                                        "currency"
-                                                    ],
-                                                    "properties": {
-                                                        "amount": {
-                                                            "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                            "type": "integer",
-                                                            "example": 12500
-                                                        },
-                                                        "currency": {
-                                                            "description": "ISO 4217 currency code.",
-                                                            "type": "string",
-                                                            "example": "EUR"
-                                                        },
-                                                        "amountDecimal": {
-                                                            "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
-                                                            "type": "string",
-                                                            "readOnly": true,
-                                                            "example": "125.00"
-                                                        }
-                                                    },
-                                                    "type": "object"
-                                                }
-                                            ]
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        },
-                        "type": "object"
-                    },
-                    "linkAdditionOffer": {
-                        "description": "Adding a link to an existing article, or null when you do not offer it.",
-                        "required": [
-                            "pricingOptions"
-                        ],
-                        "properties": {
-                            "pricingOptions": {
-                                "type": "array",
+                                        "type": [
+                                            "object",
+                                            "null"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "competitiveFeesByLinkType": {
+                                "description": "The fees POST /seller/medias/{id}/apply-competitive-fees would set, per link type: one entry per link type it lowers, in the order dofollow, nofollow, citation, or null when it suggests none (exactly when `competitiveFees` is null). Per side, the highest of these is `competitiveFees`.",
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
                                 "items": {
                                     "required": [
                                         "linkType",
-                                        "fee",
-                                        "currentCost"
+                                        "feeWhenSellerWritesPost",
+                                        "feeWhenSellerDoesNotWritePost"
                                     ],
                                     "properties": {
                                         "linkType": {
@@ -19144,8 +19934,8 @@
                                                 "citation"
                                             ]
                                         },
-                                        "fee": {
-                                            "description": "Your base fee for the link type.",
+                                        "feeWhenSellerWritesPost": {
+                                            "description": "The fee the apply sets for a post you write on this link type, or null when it keeps your fee on that side.",
                                             "allOf": [
                                                 {
                                                     "required": [
@@ -19170,12 +19960,15 @@
                                                             "example": "125.00"
                                                         }
                                                     },
-                                                    "type": "object"
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ]
                                                 }
                                             ]
                                         },
-                                        "currentCost": {
-                                            "description": "What you are paid now for the link type, flash offer discount included; read-only.",
+                                        "feeWhenSellerDoesNotWritePost": {
+                                            "description": "The fee the apply sets for a post the buyer or Growwer writes on this link type, or null when it keeps your fee on that side.",
                                             "allOf": [
                                                 {
                                                     "required": [
@@ -19210,123 +20003,125 @@
                                     },
                                     "type": "object"
                                 }
+                            },
+                            "createdAt": {
+                                "type": "string"
                             }
                         },
-                        "type": [
-                            "object",
-                            "null"
-                        ]
+                        "type": "object"
                     },
-                    "competitiveFees": {
-                        "description": "The post fees Growwer suggests to sell more, as the seller media page does, or null when it suggests none. A side Growwer finds no competitive fee for is null: unlike the page, it never shows the fixed fee the page falls back to. POST /seller/medias/{id}/apply-competitive-fees sets them.",
-                        "allOf": [
-                            {
-                                "required": [
-                                    "feeWhenSellerWritesPost",
-                                    "feeWhenSellerDoesNotWritePost"
-                                ],
-                                "properties": {
-                                    "feeWhenSellerWritesPost": {
-                                        "description": "What you are paid for a post you write, or null when you do not offer it.",
-                                        "allOf": [
-                                            {
-                                                "required": [
-                                                    "amount",
-                                                    "currency"
-                                                ],
-                                                "properties": {
-                                                    "amount": {
-                                                        "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                        "type": "integer",
-                                                        "example": 12500
+                    {
+                        "required": [
+                            "warnings"
+                        ],
+                        "properties": {
+                            "warnings": {
+                                "description": "What the save left to know, empty when nothing. `saved_above_competitors`: the fees were saved, but the media still lists above the marketplaces that list the same domain cheaper, and some fee would list it under them. `saved_not_recommended`: the same, for a save that raised a fee or added a side or link type: the media is not recommended in buyers' projects while it lists above them, and stays in the catalogue. `details.competitiveFees` holds the highest fee of each side that lists it under them (`feeWhenSellerWritesPost`, `feeWhenSellerDoesNotWritePost`, null when none does or the media does not offer that side) and `details.competitorCount` how many marketplaces those are, never which nor their prices.",
+                                "type": "array",
+                                "items": {
+                                    "required": [
+                                        "code",
+                                        "message",
+                                        "details"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "string",
+                                            "enum": [
+                                                "saved_above_competitors",
+                                                "saved_not_recommended"
+                                            ]
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Saved. The media still lists above the marketplaces that list the same domain cheaper. Setting the fees at most at the competitive fees in details lists it under them."
+                                        },
+                                        "details": {
+                                            "required": [
+                                                "competitiveFees",
+                                                "competitorCount"
+                                            ],
+                                            "properties": {
+                                                "competitiveFees": {
+                                                    "required": [
+                                                        "feeWhenSellerWritesPost",
+                                                        "feeWhenSellerDoesNotWritePost"
+                                                    ],
+                                                    "properties": {
+                                                        "feeWhenSellerWritesPost": {
+                                                            "required": [
+                                                                "amount",
+                                                                "currency"
+                                                            ],
+                                                            "properties": {
+                                                                "amount": {
+                                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                    "type": "integer",
+                                                                    "example": 12500
+                                                                },
+                                                                "currency": {
+                                                                    "description": "ISO 4217 currency code.",
+                                                                    "type": "string",
+                                                                    "example": "EUR"
+                                                                },
+                                                                "amountDecimal": {
+                                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                    "type": "string",
+                                                                    "readOnly": true,
+                                                                    "example": "125.00"
+                                                                }
+                                                            },
+                                                            "type": [
+                                                                "object",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "feeWhenSellerDoesNotWritePost": {
+                                                            "required": [
+                                                                "amount",
+                                                                "currency"
+                                                            ],
+                                                            "properties": {
+                                                                "amount": {
+                                                                    "description": "Integer cents: 12500 is 125.00 EUR.",
+                                                                    "type": "integer",
+                                                                    "example": 12500
+                                                                },
+                                                                "currency": {
+                                                                    "description": "ISO 4217 currency code.",
+                                                                    "type": "string",
+                                                                    "example": "EUR"
+                                                                },
+                                                                "amountDecimal": {
+                                                                    "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
+                                                                    "type": "string",
+                                                                    "readOnly": true,
+                                                                    "example": "125.00"
+                                                                }
+                                                            },
+                                                            "type": [
+                                                                "object",
+                                                                "null"
+                                                            ]
+                                                        }
                                                     },
-                                                    "currency": {
-                                                        "description": "ISO 4217 currency code.",
-                                                        "type": "string",
-                                                        "example": "EUR"
-                                                    },
-                                                    "amountDecimal": {
-                                                        "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
-                                                        "type": "string",
-                                                        "readOnly": true,
-                                                        "example": "125.00"
-                                                    }
+                                                    "type": "object"
                                                 },
-                                                "type": [
-                                                    "object",
-                                                    "null"
-                                                ]
-                                            }
-                                        ]
+                                                "competitorCount": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
                                     },
-                                    "feeWhenSellerDoesNotWritePost": {
-                                        "description": "What you are paid for a post the buyer or Growwer writes, or null when you do not offer it.",
-                                        "allOf": [
-                                            {
-                                                "required": [
-                                                    "amount",
-                                                    "currency"
-                                                ],
-                                                "properties": {
-                                                    "amount": {
-                                                        "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                        "type": "integer",
-                                                        "example": 12500
-                                                    },
-                                                    "currency": {
-                                                        "description": "ISO 4217 currency code.",
-                                                        "type": "string",
-                                                        "example": "EUR"
-                                                    },
-                                                    "amountDecimal": {
-                                                        "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
-                                                        "type": "string",
-                                                        "readOnly": true,
-                                                        "example": "125.00"
-                                                    }
-                                                },
-                                                "type": [
-                                                    "object",
-                                                    "null"
-                                                ]
-                                            }
-                                        ]
-                                    }
-                                },
-                                "type": [
-                                    "object",
-                                    "null"
-                                ]
+                                    "type": "object"
+                                }
                             }
-                        ]
-                    },
-                    "createdAt": {
-                        "type": "string"
+                        },
+                        "type": "object"
                     }
-                },
-                "required": [
-                    "id",
-                    "domain",
-                    "url",
-                    "typology",
-                    "state",
-                    "deactivationStrikes",
-                    "country",
-                    "language",
-                    "topics",
-                    "bannedTopics",
-                    "providerComments",
-                    "publicationRate",
-                    "averageDaysToPublication",
-                    "numPublishedOrders",
-                    "onHoliday",
-                    "flashOffer",
-                    "postOffer",
-                    "linkAdditionOffer",
-                    "competitiveFees",
-                    "createdAt"
-                ],
-                "description": "One of your medias, as its seller sees it."
+                ]
             },
             "annotations": {
                 "title": "Edit the offer of a media",
