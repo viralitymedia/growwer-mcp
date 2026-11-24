@@ -2471,7 +2471,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -2510,7 +2510,7 @@
             },
             "annotations": {
                 "title": "Count the medias of a saved filter",
-                "readOnlyHint": true,
+                "readOnlyHint": false,
                 "destructiveHint": false,
                 "idempotentHint": true,
                 "openWorldHint": false
@@ -3080,7 +3080,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": false,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -4277,220 +4277,6 @@
             }
         },
         {
-            "name": "growwer_create_webhook",
-            "title": "Create a webhook subscription",
-            "description": "Use this when the user wants Growwer to notify one of their HTTPS endpoints of order or balance events: subscribes the URL to the events listed and answers the signing secret, shown only this once. The secret then stays in this conversation: tell the user to store it in their system now, and to rotate it with growwer_rotate_webhook_secret if the conversation may be shared. The user is asked to confirm the URL and the events first.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "requestId": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9._:-]{8,128}$",
-                        "description": "Required. A new UUID for each distinct write (8 to 128 letters, digits, \".\", \"_\", \":\" or \"-\"). Calling the tool again with the same requestId and arguments returns the first result without writing twice; send a new one for a new write."
-                    },
-                    "url": {
-                        "description": "An HTTPS URL of at most 2048 characters, without a backslash or credentials. Its host is an IP address or a domain name of two labels or more, such as hooks.example.com, with one trailing dot allowed; a single-label host such as localhost is refused (`validation_failed` on `url`). The host is checked, and resolved at each delivery, in lower case and with a Unicode name in punycode, the form a delivery connects to.",
-                        "type": "string",
-                        "maxLength": 2048
-                    },
-                    "events": {
-                        "description": "The events to send, at least one.",
-                        "type": "array",
-                        "items": {
-                            "description": "An event a subscription can list. `webhook.test` is sent only by POST /webhooks/{id}/test and cannot be listed.",
-                            "type": "string",
-                            "enum": [
-                                "order.created",
-                                "order.accepted",
-                                "order.rejected",
-                                "order.published",
-                                "order.update_requested",
-                                "order.completed",
-                                "order.cancelled",
-                                "balance.low"
-                            ]
-                        },
-                        "minItems": 1,
-                        "uniqueItems": true
-                    },
-                    "lowBalanceThreshold": {
-                        "required": [
-                            "amount",
-                            "currency"
-                        ],
-                        "properties": {
-                            "amount": {
-                                "description": "Integer cents: 12500 is 125.00 EUR.",
-                                "type": "integer",
-                                "example": 12500
-                            },
-                            "currency": {
-                                "description": "ISO 4217 currency code.",
-                                "type": "string",
-                                "example": "EUR"
-                            }
-                        },
-                        "type": "object",
-                        "description": "With `balance.low`: the available buyer balance below which the event fires, in EUR."
-                    },
-                    "description": {
-                        "description": "A note of yours, at most 255 characters.",
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "maxLength": 255
-                    }
-                },
-                "required": [
-                    "requestId",
-                    "url",
-                    "events"
-                ],
-                "additionalProperties": false
-            },
-            "outputSchema": {
-                "type": "object",
-                "description": "A subscription with its signing secret, which only create and rotate-secret answer.",
-                "allOf": [
-                    {
-                        "required": [
-                            "id",
-                            "url",
-                            "events",
-                            "lowBalanceThreshold",
-                            "description",
-                            "enabled",
-                            "disabledReason",
-                            "failingSince",
-                            "previousSecretExpiresAt",
-                            "createdAt",
-                            "updatedAt"
-                        ],
-                        "properties": {
-                            "id": {
-                                "type": "string"
-                            },
-                            "url": {
-                                "type": "string"
-                            },
-                            "events": {
-                                "type": "array",
-                                "items": {
-                                    "description": "An event a subscription can list. `webhook.test` is sent only by POST /webhooks/{id}/test and cannot be listed.",
-                                    "type": "string",
-                                    "enum": [
-                                        "order.created",
-                                        "order.accepted",
-                                        "order.rejected",
-                                        "order.published",
-                                        "order.update_requested",
-                                        "order.completed",
-                                        "order.cancelled",
-                                        "balance.low"
-                                    ]
-                                }
-                            },
-                            "lowBalanceThreshold": {
-                                "description": "With `balance.low`, the available buyer balance below which it fires; null otherwise.",
-                                "allOf": [
-                                    {
-                                        "required": [
-                                            "amount",
-                                            "currency"
-                                        ],
-                                        "properties": {
-                                            "amount": {
-                                                "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                "type": "integer",
-                                                "example": 12500
-                                            },
-                                            "currency": {
-                                                "description": "ISO 4217 currency code.",
-                                                "type": "string",
-                                                "example": "EUR"
-                                            },
-                                            "amountDecimal": {
-                                                "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
-                                                "type": "string",
-                                                "readOnly": true,
-                                                "example": "125.00"
-                                            }
-                                        },
-                                        "type": [
-                                            "object",
-                                            "null"
-                                        ]
-                                    }
-                                ]
-                            },
-                            "description": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            },
-                            "enabled": {
-                                "description": "Whether the subscription gets events.",
-                                "type": "boolean"
-                            },
-                            "disabledReason": {
-                                "description": "Why it is disabled, null while enabled. `by_user`, through PATCH /webhooks/{id}; `endpoint_gone`, its endpoint answered 410; `failing`, every delivery failed for 5 days, and the account owner was emailed.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ],
-                                "enum": [
-                                    "by_user",
-                                    "endpoint_gone",
-                                    "failing",
-                                    null
-                                ]
-                            },
-                            "failingSince": {
-                                "description": "Since when its deliveries have failed without one succeeding, null while they succeed. At 5 days it is disabled. The check runs at each failed attempt, so a subscription whose `failingSince` is already more than 5 days old, say one that had no event for a while, is disabled at its next failed attempt, without the retries that delivery would otherwise get.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            },
-                            "previousSecretExpiresAt": {
-                                "description": "Until when the secret replaced by the last rotation still signs beside the new one, null when it no longer does.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            },
-                            "createdAt": {
-                                "type": "string"
-                            },
-                            "updatedAt": {
-                                "type": "string"
-                            }
-                        },
-                        "type": "object"
-                    },
-                    {
-                        "properties": {
-                            "secret": {
-                                "description": "The signing secret, `whsec_` and the base64 of 32 random bytes. Shown only in this answer, and absent when the request is replayed under its `Idempotency-Key` (or the MCP tool under its `requestId`), since the secret is never stored.",
-                                "type": "string",
-                                "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
-                            }
-                        },
-                        "type": "object"
-                    }
-                ]
-            },
-            "annotations": {
-                "title": "Create a webhook subscription",
-                "readOnlyHint": false,
-                "destructiveHint": false,
-                "idempotentHint": false,
-                "openWorldHint": true
-            }
-        },
-        {
             "name": "growwer_delete_project",
             "title": "Delete a project",
             "description": "Use this when the user no longer wants one of their projects: deletes it for good. A project with an order in progress cannot be deleted. The user is asked to confirm first.",
@@ -5077,7 +4863,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -5521,7 +5307,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -5965,7 +5751,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -6412,7 +6198,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -7930,7 +7716,7 @@
             },
             "annotations": {
                 "title": "Get a catalogue media",
-                "readOnlyHint": true,
+                "readOnlyHint": false,
                 "destructiveHint": false,
                 "idempotentHint": true,
                 "openWorldHint": false
@@ -8346,12 +8132,6 @@
                     "id": {
                         "type": "string"
                     },
-                    "email": {
-                        "type": "string"
-                    },
-                    "firstName": {
-                        "type": "string"
-                    },
                     "language": {
                         "description": "The language Growwer writes to you in.",
                         "type": "string",
@@ -8586,8 +8366,6 @@
                 },
                 "required": [
                     "id",
-                    "email",
-                    "firstName",
                     "language",
                     "createdAt",
                     "buyer",
@@ -10899,6 +10677,10 @@
                         "maximum": 99900,
                         "minimum": 0,
                         "description": "Medias to skip, at most 99900."
+                    },
+                    "deals": {
+                        "type": "boolean",
+                        "description": "Deals: medias with an offer running (`flashOffer`) or a best-price badge (`bestPrice` not null), either one, within the other filters. Only `true` applies it; omit it otherwise. With `flashOffer=true` it selects the medias on offer."
                     }
                 },
                 "required": [
@@ -11533,7 +11315,7 @@
             },
             "annotations": {
                 "title": "List the medias on offer",
-                "readOnlyHint": true,
+                "readOnlyHint": false,
                 "destructiveHint": false,
                 "idempotentHint": true,
                 "openWorldHint": false
@@ -15255,7 +15037,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -15701,7 +15483,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -16168,7 +15950,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -16841,7 +16623,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -17266,7 +17048,7 @@
                 "readOnlyHint": false,
                 "destructiveHint": true,
                 "idempotentHint": true,
-                "openWorldHint": false
+                "openWorldHint": true
             }
         },
         {
@@ -17782,173 +17564,9 @@
             }
         },
         {
-            "name": "growwer_rotate_webhook_secret",
-            "title": "Rotate a webhook secret",
-            "description": "Use this when the user wants a new signing secret for one of their webhook subscriptions, for example because the old one leaked: answers the new secret, shown only this once; the old one keeps signing beside it for 24 hours. The new secret then stays in this conversation: tell the user to store it in their system now.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "description": "The subscription."
-                    },
-                    "requestId": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9._:-]{8,128}$",
-                        "description": "Required. A new UUID for each distinct write (8 to 128 letters, digits, \".\", \"_\", \":\" or \"-\"). Calling the tool again with the same requestId and arguments returns the first result without writing twice; send a new one for a new write."
-                    }
-                },
-                "required": [
-                    "id",
-                    "requestId"
-                ],
-                "additionalProperties": false
-            },
-            "outputSchema": {
-                "type": "object",
-                "description": "A subscription with its signing secret, which only create and rotate-secret answer.",
-                "allOf": [
-                    {
-                        "required": [
-                            "id",
-                            "url",
-                            "events",
-                            "lowBalanceThreshold",
-                            "description",
-                            "enabled",
-                            "disabledReason",
-                            "failingSince",
-                            "previousSecretExpiresAt",
-                            "createdAt",
-                            "updatedAt"
-                        ],
-                        "properties": {
-                            "id": {
-                                "type": "string"
-                            },
-                            "url": {
-                                "type": "string"
-                            },
-                            "events": {
-                                "type": "array",
-                                "items": {
-                                    "description": "An event a subscription can list. `webhook.test` is sent only by POST /webhooks/{id}/test and cannot be listed.",
-                                    "type": "string",
-                                    "enum": [
-                                        "order.created",
-                                        "order.accepted",
-                                        "order.rejected",
-                                        "order.published",
-                                        "order.update_requested",
-                                        "order.completed",
-                                        "order.cancelled",
-                                        "balance.low"
-                                    ]
-                                }
-                            },
-                            "lowBalanceThreshold": {
-                                "description": "With `balance.low`, the available buyer balance below which it fires; null otherwise.",
-                                "allOf": [
-                                    {
-                                        "required": [
-                                            "amount",
-                                            "currency"
-                                        ],
-                                        "properties": {
-                                            "amount": {
-                                                "description": "Integer cents: 12500 is 125.00 EUR.",
-                                                "type": "integer",
-                                                "example": 12500
-                                            },
-                                            "currency": {
-                                                "description": "ISO 4217 currency code.",
-                                                "type": "string",
-                                                "example": "EUR"
-                                            },
-                                            "amountDecimal": {
-                                                "description": "Exact decimal of `amount` in major units: \"125.00\". An input may only echo it unchanged.",
-                                                "type": "string",
-                                                "readOnly": true,
-                                                "example": "125.00"
-                                            }
-                                        },
-                                        "type": [
-                                            "object",
-                                            "null"
-                                        ]
-                                    }
-                                ]
-                            },
-                            "description": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            },
-                            "enabled": {
-                                "description": "Whether the subscription gets events.",
-                                "type": "boolean"
-                            },
-                            "disabledReason": {
-                                "description": "Why it is disabled, null while enabled. `by_user`, through PATCH /webhooks/{id}; `endpoint_gone`, its endpoint answered 410; `failing`, every delivery failed for 5 days, and the account owner was emailed.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ],
-                                "enum": [
-                                    "by_user",
-                                    "endpoint_gone",
-                                    "failing",
-                                    null
-                                ]
-                            },
-                            "failingSince": {
-                                "description": "Since when its deliveries have failed without one succeeding, null while they succeed. At 5 days it is disabled. The check runs at each failed attempt, so a subscription whose `failingSince` is already more than 5 days old, say one that had no event for a while, is disabled at its next failed attempt, without the retries that delivery would otherwise get.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            },
-                            "previousSecretExpiresAt": {
-                                "description": "Until when the secret replaced by the last rotation still signs beside the new one, null when it no longer does.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            },
-                            "createdAt": {
-                                "type": "string"
-                            },
-                            "updatedAt": {
-                                "type": "string"
-                            }
-                        },
-                        "type": "object"
-                    },
-                    {
-                        "properties": {
-                            "secret": {
-                                "description": "The signing secret, `whsec_` and the base64 of 32 random bytes. Shown only in this answer, and absent when the request is replayed under its `Idempotency-Key` (or the MCP tool under its `requestId`), since the secret is never stored.",
-                                "type": "string",
-                                "example": "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
-                            }
-                        },
-                        "type": "object"
-                    }
-                ]
-            },
-            "annotations": {
-                "title": "Rotate a webhook secret",
-                "readOnlyHint": false,
-                "destructiveHint": true,
-                "idempotentHint": false,
-                "openWorldHint": false
-            }
-        },
-        {
             "name": "growwer_search_project_medias",
             "title": "Search the catalogue for a project",
-            "description": "Use this when the user wants media to publish on for one of their projects: searches the catalogue with filters on price, metrics, topics, languages, countries, the best-price badge (bestPrice) and more, and answers each media with its state in the project.",
+            "description": "Use this when the user wants media to publish on for one of their projects: searches the catalogue with filters on price, metrics, topics, languages, countries, the best-price badge (bestPrice), deals (deals: on offer or at the best price) and more, and answers each media with its state in the project.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -18132,6 +17750,10 @@
                         "maximum": 99900,
                         "minimum": 0,
                         "description": "Medias to skip, at most 99900."
+                    },
+                    "deals": {
+                        "type": "boolean",
+                        "description": "Deals: medias with an offer running (`flashOffer`) or a best-price badge (`bestPrice` not null), either one, within the other filters. Only `true` applies it; omit it otherwise. With `flashOffer=true` it selects the medias on offer."
                     }
                 },
                 "required": [
@@ -18766,7 +18388,7 @@
             },
             "annotations": {
                 "title": "Search the catalogue for a project",
-                "readOnlyHint": true,
+                "readOnlyHint": false,
                 "destructiveHint": false,
                 "idempotentHint": true,
                 "openWorldHint": false

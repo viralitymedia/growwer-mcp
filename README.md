@@ -20,7 +20,7 @@
 
 Growwer is a marketplace of sponsored articles and link additions on third-party media, for brands,
 agencies and publishers. The MCP server exposes it to any MCP client, for buyers and for sellers, as
-**78 tools** (39 that read, 39 that change something) and **6 prompts**. One tool,
+**76 tools** (39 that read, 37 that change something) and **6 prompts**. One tool,
 `growwer_get_guide`, answers questions about Growwer itself and works without signing in, and so do
 the prompts.
 
@@ -226,6 +226,10 @@ arguments returns the first result without writing twice.
 
 ### Reading
 
+Four reads spend the daily catalogue quota of distinct media, so they are not marked read-only:
+`growwer_search_project_medias`, `growwer_list_flash_offers`, `growwer_get_catalogue_media` and
+`growwer_count_saved_filter_medias`. They change nothing, take no `requestId` and need only read access.
+
 | Area | Tools |
 |---|---|
 | Account and reference | `growwer_get_me`, `growwer_get_guide`, `growwer_get_vocabulary` |
@@ -253,7 +257,10 @@ anything happens. See [Limits](#limits).
 | Managed service | `growwer_request_managed_service_campaign`, `growwer_request_managed_service_info`, **`growwer_review_managed_service_proposals`** |
 | Media you sell on | `growwer_create_seller_media`, `growwer_update_seller_media`, **`growwer_delete_seller_media`**, `growwer_apply_seller_media_competitive_fees`, `growwer_put_seller_holiday` |
 | Orders you sell | `growwer_accept_seller_order`, **`growwer_reject_seller_order`**, **`growwer_deliver_seller_order`**, **`growwer_deliver_seller_order_draft`**, **`growwer_deliver_seller_order_draft_update`**, **`growwer_deliver_seller_order_update`**, **`growwer_refute_seller_order_draft_update`**, **`growwer_refute_seller_order_update`** |
-| Webhooks | **`growwer_create_webhook`**, **`growwer_update_webhook`** (only when it changes the URL), **`growwer_delete_webhook`**, `growwer_rotate_webhook_secret`, `growwer_send_webhook_test`, `growwer_redeliver_webhook` |
+| Webhooks | **`growwer_update_webhook`** (only when it changes the URL), **`growwer_delete_webhook`**, `growwer_send_webhook_test`, `growwer_redeliver_webhook` |
+
+Webhook subscriptions are created, and their signing secrets rotated, on the Growwer website or through
+the API: no tool returns a signing secret.
 
 ## Prompts
 
