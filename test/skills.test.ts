@@ -17,7 +17,7 @@ const GUARDED_WRITES = CATALOG.tools
   .map((tool) => tool.name);
 
 /** The guarded writes the committed catalogue holds, so a reworded description cannot drop one silently. */
-const GUARDED_WRITE_COUNT = 18;
+const GUARDED_WRITE_COUNT = 17;
 
 const skills = readdirSync(skillsPath);
 

@@ -3,7 +3,7 @@
   "name": "com.growwer/growwer",
   "title": "Growwer",
   "description": "Find media, buy sponsored articles and manage orders, sales and wallets on Growwer.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "websiteUrl": "https://growwer.com/link-building-mcp/",
   "repository": {
     "url": "https://github.com/viralitymedia/growwer-mcp",
@@ -37,7 +37,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@growwer/mcp",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
@@ -61,7 +61,7 @@
     },
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/viralitymedia/growwer-mcp:1.0.0",
+      "identifier": "ghcr.io/viralitymedia/growwer-mcp:1.0.1",
       "transport": {
         "type": "stdio"
       },

@@ -1,6 +1,6 @@
 {
   "name": "@growwer/mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "mcpName": "com.growwer/growwer",
   "description": "Stdio bridge to the hosted Growwer MCP server for the sponsored article marketplace.",
   "keywords": [
